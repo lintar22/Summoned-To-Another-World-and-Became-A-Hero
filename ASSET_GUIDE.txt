@@ -1,0 +1,111 @@
+==============================================
+  CHRONICLE HERO — PANDUAN STRUKTUR ASSET
+==============================================
+
+NAMA KARAKTER:
+  Hero/Player : Arga
+  Heroine     : Elena
+  Party       : Lyra, Darius
+  Boss        : Demon King  (folder: demon_king)
+  Monster     : Slime, Mushroom, Goblin, dll
+
+----------------------------------------------
+STRUKTUR FOLDER ASSET (WAJIB DIIKUTI)
+----------------------------------------------
+
+assets/
+├── backgrounds/
+│   ├── bg_night_city.png       ← scene opening
+│   ├── bg_throne_room.png      ← chapter 1
+│   ├── bg_town.png
+│   ├── bg_forest.png           ← chapter 2
+│   ├── bg_ruins.png
+│   ├── bg_village.png
+│   ├── bg_battle.png
+│   ├── bg_castle_ext.png
+│   ├── bg_castle_int.png
+│   └── bg_ending.png
+│
+├── characters/
+│   ├── heroes/
+│   │   ├── arga/               ← HERO UTAMA
+│   │   │   ├── arga_idle.png
+│   │   │   ├── arga_walk.png
+│   │   │   ├── arga_attack.png
+│   │   │   ├── arga_hurt.png
+│   │   │   └── arga_portrait.png
+│   │   ├── elena/              ← HEROINE / PARTY
+│   │   │   ├── elena_idle.png
+│   │   │   ├── elena_attack.png
+│   │   │   ├── elena_hurt.png
+│   │   │   └── elena_portrait.png
+│   │   ├── lyra/               ← PARTY
+│   │   │   ├── lyra_idle.png
+│   │   │   ├── lyra_attack.png
+│   │   │   ├── lyra_hurt.png
+│   │   │   └── lyra_portrait.png
+│   │   └── darius/             ← PARTY
+│   │       ├── darius_idle.png
+│   │       ├── darius_attack.png
+│   │       ├── darius_hurt.png
+│   │       └── darius_portrait.png
+│   │
+│   ├── enemies/
+│   │   ├── slime/
+│   │   │   ├── idle/           ← folder animasi (ambil frame pertama)
+│   │   │   ├── attack/
+│   │   │   ├── hurt/
+│   │   │   └── dead/
+│   │   │   ATAU flat: slime_idle.png, slime_attack.png, dll
+│   │   ├── demon_king/         ← BOSS FINAL
+│   │   │   └── demon_king_idle.png  (atau folder animasi)
+│   │   ├── mushroom/
+│   │   │   └── mushroom_idle.png
+│   │   └── goblin/
+│   │       └── goblin_idle.png
+│   │
+│   └── npc/
+│       ├── king/               ← folder atau king.png langsung
+│       ├── merchant/
+│       ├── guard/
+│       └── village_elder/
+│
+├── ui/
+│   ├── dialog_box.png
+│   ├── choice_button.png
+│   ├── nameplate.png
+│   └── fonts/                  ← opsional: .ttf/.otf
+│
+├── audio/
+│   ├── bgm/
+│   │   ├── kingdom_theme.mp3
+│   │   ├── battle_theme.mp3
+│   │   └── sad_theme.mp3
+│   └── sfx/
+│       ├── sword_hit.wav
+│       ├── menu_click.wav
+│       └── magic_flash.wav
+│
+├── skills/
+│   ├── icons/
+│   └── animations/
+│
+├── effects/
+├── items/
+├── weapons/
+└── maps/
+
+----------------------------------------------
+CATATAN PENTING:
+----------------------------------------------
+* Nama file HARUS sesuai persis (huruf kecil semua)
+* Format yang didukung: .png, .jpg untuk gambar
+* Format audio: .mp3, .ogg, .wav
+* Fallback: file tidak ditemukan → placeholder merah muncul
+  (game tetap jalan, tidak crash)
+* Alias otomatis tersedia:
+  - hero_*  = arga_*
+  - player_* = arga_*
+  - luna_*  = elena_*  (legacy)
+  - kael_*  = darius_* (legacy)
+  - aria_*  = lyra_*   (legacy)
