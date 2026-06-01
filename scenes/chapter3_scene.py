@@ -17,7 +17,7 @@ import math
 import random
 from engine.base import Scene
 from engine.colors import *
-from ui.components import DialogueBox, TransitionScreen, NarratorBox, FloatingText
+from ui.components import DialogueBox, TransitionScreen, NarratorBox, FloatingText, PartyHUD
 from entities.characters import Player, PartyNPC, MonsterNPC
 
 
@@ -26,14 +26,14 @@ class Chapter3Scene(Scene):
 
     RENO_DLGS = [
     ("Reno",   "Sial— ada berapa ekor lagi?! Ini tidak masuk akal!"),
-    ("Arga",   "Hei. Mundur dulu."),
+    ("Arga",   "Hei. Kau kenapa!?."),
     ("Reno",   "Ha?! Siapa kamu—"),
-    ("Elena",  "Arga, tunggu! Mereka banyak sekali!"),
-    ("Arga",   "Aku lihat. Justru itu."),
+    ("Elena",  "Arga, tunggu! Disana banyak sekali monsternya!"),
+    ("Arga",   "Iya, mari kita bantu dia!."),
     ]
 
     RENO_POST_BATTLE = [
-        ("Reno",   "...Gila. hanya dengan satu orang. Semuanya habis begitu saja."),
+        ("Reno",   "...Gila. hanya dalam sekejap. Semuanya habis begitu saja."),
         ("Reno",   "Hei, nama kamu siapa?"),
         ("Arga",   "Arga."),
         ("Reno",   "Aku Reno. Petarung bebas dari utara. Sudah tiga bulan aku menjelajai hutan ini sendirian."),
@@ -41,65 +41,169 @@ class Chapter3Scene(Scene):
         ("Reno",   "Iya. Aku sedang mencari kelompok pahlawan yang katanya akan menuju ke kastil Raja Iblis tapi tidak ketemu-ketemu."),
         ("Reno",   "Kalian yang dimaksud, kan? Boleh aku ikut? Aku tidak minta apa-apa."),
         ("Arga",   "Kamu tidak takut?"),
-        ("Reno",   "Takut itu ada. Tapi berdiam di sini lebih menakutkan bagiku."),
-        ("Arga",   "...Baiklah. Selamat datang Reno, semoga kita bisa akur yah."),
+        ("Reno",   "Takut itu memang pasti. Tapi daripada diem doang disini, mending aku ikut dengan kalian."),
+        ("Arga",   "...Baiklah. Selamat datang Reno, semoga kita bisa saling membantu yah."),
         ("SYSTEM", "⭐ Reno bergabung dengan party!"),
     ]
 
     LYRA_DLGS = [
-        ("Lyra",   "Jangan sentuh simbol itu."),
+        ("Lyra",   "HEI! Jangan sentuh simbol itu."),
         ("Arga",   "Kenapa?"),
-        ("Lyra",   "Itu jebakan sihir kuno dan itu sangat sensitif terhadap mana asing."),
+        ("Lyra",   "Itu adalah jebakan sihir yang sangat amat kuno dan itu sangat sensitif terhadap mana yang asing."),
         ("Arga",   "...Hm. Seperti ini?"),
         ("SYSTEM", "💥 BOOM — Jebakan aktif!"),
         ("Lyra",   "...Aku bilang jangan disentuh."),
-        ("Lyra",   "Bersiaplah. Ada tiga sumber mana bergerak dari dinding."),
-        ("Arga",   "Kamu bisa bertarung?"),
-        ("Lyra",   "Pertanyaan itu yang seharusnya kamu tanyakan ke dirimu sendiri."),
+        ("Lyra",   "Hati-Hati. Ada tiga sumber mana bergerak dari sana."),
+        ("Arga",   "Kamu bisa bertarung kan?"),
+        ("Lyra",   "Mending tanyain itu pada dirimu sendiri."),
     ]
 
     LYRA_POST_BATTLE = [
-        ("Lyra",   "Kekuatanmu aneh. Tidak seperti penyihir, tidak seperti ksatria biasa."),
-        ("Arga",   "Itu pujian?"),
-        ("Lyra",   "Lupain."),
-        ("Elena",  "Lyra... kamu dari guild Bintang Hitam, kan?"),
-        ("Lyra",   "Dulu. Sekarang tidak berafiliasi dengan siapa pun."),
-        ("Reno",   "Kenapa keluar?"),
-        ("Lyra",   "Ketua guild kami dibunuh Raja Iblis. Dan tidak ada yang peduli selain aku."),
-        ("Lyra",   "Tujuan kita tampaknya sama. Boleh aku ikut?"),
-        ("Arga",   "Kamu sudah bertarung di sisi kami barusan. Itu cukup jawaban."),
-        ("Lyra",   "...Hm."),
-        ("SYSTEM", "⭐ Lyra bergabung dengan party."),
+        ("Lyra", "Kekuatanmu aneh."),
+        ("Lyra", "Tidak seperti penyihir, tapi juga tidak seperti ksatria biasa."),
+        ("Arga", "Aku anggap itu pujian."),
+        ("Lyra", "Jangan terlalu percaya diri."),
+        ("Reno", "Wah, baru kenal udah galak."),
+        ("Lyra", "Dan kamu terlalu banyak bicara."),
+        ("Reno", "Uwahk serem."),
+        ("Elena", "Lyra... kamu berasal dari guild Bintang Hitam, bukan?"),
+        ("Lyra", "...Masih ada yang mengenali lambang itu rupanya."),
+        ("Elena", "Guild itu cukup terkenal beberapa tahun lalu."),
+        ("Lyra", "Dulu."),
+        ("Lyra", "Sekarang nama itu tidak berarti apa-apa."),
+        ("Arga", "...Apa yang terjadi?"),
+        ("Lyra", "Pasukan iblis menyerang markas kami."),
+        ("Lyra", "Kami pikir kami siap menghadapi mereka."),
+        ("Lyra", "Kami salah."),
+        ("Lyra", "...Ketua guild kami gugur hari itu."),
+        ("Lyra", "Dia bertahan sampai orang terakhir berhasil melarikan diri."),
+        ("Lyra", "Dan setelah semuanya berakhir... tidak ada yang peduli."),
+        ("Lyra", "Tidak ada bantuan."),
+        ("Lyra", "Tidak ada apapun."),
+        ("Lyra", "Hanya reruntuhan dan nama-nama yang perlahan dilupakan."),
+        ("Reno", "..."),
+        ("Elena", "...Maafkan aku."),
+        ("Lyra", "Tidak perlu."),
+        ("Lyra", "Belas kasihan tidak akan menghidupkan mereka kembali."),
+        ("Arga", "Jadi sejak saat itu kamu berjalan sendirian?"),
+        ("Lyra", "Ya."),
+        ("Lyra", "Lebih mudah begitu."),
+        ("Lyra", "Tidak perlu kehilangan siapa pun lagi."),
+        ("Arga", "Dan juga tidak ada yang akan menolongmu saat keadaan menjadi buruk."),
+        ("Lyra", "..."),
+        ("Reno", "Dia ada benarnya."),
+        ("Lyra", "Aku tidak meminta pendapatmu."),
+        ("Reno", "Nah, itu dia. Yang tadi sempat hilang."),
+        ("Lyra", "..."),
+        ("Lyra", "Hei."),
+        ("Lyra", "Sebenarnya kalian ini siapa?"),
+        ("Lyra", "Kalian bahkan tidak mengenalku."),
+        ("Lyra", "Tapi tetap bertarung seolah nyawa kalian saling bergantung."),
+        ("Arga", "Kami juga tidak benar-benar mengenalmu."),
+        ("Lyra", "...Lalu kenapa membantuku?"),
+        ("Arga", "Karena kamu bertarung di sisi kami."),
+        ("Arga", "Kadang itu sudah cukup."),
+        ("Elena", "Tidak semua orang harus punya alasan rumit untuk saling membantu."),
+        ("Lyra", "...Hm."),
+        ("Reno", "Kalau dipikir-pikir, kita memang kelompok yang aneh."),
+        ("Lyra", "Itu satu-satunya hal yang masuk akal dari kalian."),
+        ("Arga", "Kalau begitu bagaimana?"),
+        ("Arga", "Masih ingin berjalan sendirian?"),
+        ("Lyra", "..."),
+        ("Lyra", "Aku sudah terlalu lama berjalan tanpa tujuan."),
+        ("Lyra", "Dan untuk pertama kalinya setelah sekian lama... aku tidak merasa harus melakukannya sendirian."),
+        ("Reno", "Aku anggap itu sebagai 'ya'."),
+        ("Lyra", "Jangan membuatku menyesal mengambil keputusan ini."),
+        ("Arga", "Tidak ada jaminan."),
+        ("Lyra", "...Hah. Setidaknya kamu jujur."),
+        ("SYSTEM", "⭐ Lyra bergabung dengan party.")
+
     ]
 
     DARIUS_DLGS = [
-        ("Darius", "Kalian— pergi! Bawa warga ke utara! Aku yang tahan di sini!"),
+        ("Darius", "Kugh.. Kalian— pergi dari sini! Bawa warga desa ke utara! Aku yang akan menahan mereka di sini!"),
         ("Arga",   "Ada berapa warga yang tersisa?"),
         ("Darius", "Tidak penting! Pergi saja!"),
         ("Reno",   "Kita tidak bisa tinggalkan orang sendirian di sini—"),
-        ("Darius", "Ini DESAKU. Aku yang jaga. Kalian tidak punya urusan di sini!"),
-        ("Arga",   "Kamu tidak bisa tahan semua ini seorang diri."),
+        ("Darius", "Ini DESAKU. Akulah yang harus menjaganya. Kalian tidak punya urusan di sini!"),
+        ("Arga",   "Kamu tidak akan bisa menahan semua ini seorang diri!."),
         ("Darius", "Aku sudah tahan seharian. Aku bi—"),
         ("Reno",   "Mereka datang lagi dari timur! Jauh lebih banyak dari tadi!"),
-        ("Arga",   "Darius. Izinkan kami bantu dulu. Setelah ini baru kita bicara."),
+        ("Arga",   "Hei kamu! Biarkan kami membantumu. Setelah ini baru kita bicara."),
     ]
 
     DARIUS_POST_BATTLE = [
-        ("Darius", "...Kenapa kalian tidak pergi?"),
-        ("Elena",  "Meninggalkan orang yang berjuang sendirian bukan cara kami."),
-        ("Darius", "Aku tidak butuh belas kasihan."),
-        ("Arga",   "Desa ini sudah tidak ada warganya, kan."),
-        ("Darius", "...Warga terakhir pergi tiga hari lalu. Aku bertahan karena tidak bisa pergi begitu saja."),
-        ("Arga",   "Kalau kamu ikut bersama kami — mungkin tidak ada desa lain yang bernasib sama."),
-        ("Darius", "...Kamu menawarkanku ikut?"),
-        ("Arga",   "Aku memintamu. Ada bedanya."),
-        ("Darius", "...Beri aku satu malam. Aku ingin berdoa dulu di sini."),
-        ("Elena",  "Tentu saja."),
-        ("SYSTEM", "— Keesokan paginya —"),
-        ("Darius", "Aku siap. Hidupku mulai hari ini untuk tujuan ini."),
-        ("Reno",   "Akhirnya! Kita butuh orang serius di kelompok ini."),
-        ("Lyra",   "Ada dua orang yang tidak serius?"),
-        ("SYSTEM", "⭐ Darius bergabung dengan party."),
+        ("Darius", "...Kenapa kalian masih di sini? Bukankah urusan kalian sudah selesai?"),
+        ("Elena", "Meninggalkan seseorang sendirian setelah pertempuran seperti ini bukan kebiasaan kami."),
+        ("Darius", "Aku tidak membutuhkan belas kasihanmu wanita."),
+        ("Arga", "Kalau itu rasa kasihan, kami sudah pergi sejak tadi."),
+        ("Darius", "..."),
+        ("Arga", "Dan juga, kau terlalu kasar dengan Putri Kerajaan sialan."),
+        ("Darius", "HA! PUTRI KERAJAAN?, JADI KALIAN ADALAH KELOMPOK PAHLAWAN YANG DIBICARAKAN ITU?!"),
+        ("Arga", "Ya, Aku Arga."),
+        ("Reno", "Reno disini."),
+        ("Lyra", "Lyra."),
+        ("Arga", "Dan yang terakhir."),
+        ("Elena", "Namaku Elena Von Astaravia."),
+        ("Darius", "Wahai tuan putri, mohon maafkan ketidaksopanan yang sudah kuucapkan tadi."),
+        ("Elena", "Ngapapa ko."),
+        ("Arga", "Hei, siapa namamu?"),
+        ("Darius", "Aku Darius."),
+        ("Arga", " Hei Darius desa ini sudah kosong, kan?"),
+        ("Darius", "Ya. Warga terakhir meninggalkannya tiga hari yang lalu."),
+        ("Darius", "Mereka memohon agar aku ikut pergi bersama mereka."),
+        ("Darius", "Tapi aku tidak sanggup meninggalkan tempat ini begitu saja."),
+        ("Darius", "Setiap rumah di sini menyimpan kenangan. Setiap jalannys pernah dipenuhi suara orang-orang yang kini entah berada di mana."),
+        ("Elena", "...Kau bertahan sendirian demi menjaga desa yang bahkan sudah ditinggalkan."),
+        ("Darius", "Seseorang harus tetap berdiri sampai akhir."),
+        ("Arga", "Lalu sekarang apa yang akan kau lakukan?"),
+        ("Darius", "...Aku tidak tahu."),
+        ("Darius", "Selama ini aku hanya bertarung agar desa ini tetap ada."),
+        ("Darius", "Tapi sekarang bahkan alasan itu sudah hilang."),
+        ("Arga", "Kalau begitu, ikutlah bersama kami."),
+        ("Darius", "...Apa?"),
+        ("Arga", "Kalau kau benar-benar ingin melindungi orang lain, masih ada banyak tempat yang membutuhkan pedangmu."),
+        ("Arga", "Masih ada banyak desa yang bisa mengalami nasib yang sama."),
+        ("Arga", "Dan kami tidak bisa menghentikan semuanya sendirian."),
+        ("Darius", "...Kau mengajakku bergabung?"),
+        ("Arga", "Bukan mengajak."),
+        ("Arga", "Aku memintamu."),
+        ("Darius", "..."),
+        ("Darius", "Kalian bahkan tidak mengenalku."),
+        ("Elena", "Mungkin."),
+        ("Elena", "Tapi seseorang yang tetap bertahan menjaga desa kosong seorang diri selama berhari-hari bukanlah orang jahat."),
+        ("Reno", "Dan terus terang, kita memang butuh petarung sekuat dirimu."),
+        ("Lyra", "Untuk sekali ini aku setuju dengan Reno."),
+        ("Reno", "Hei, kenapa kedengarannya seperti hinaan?"),
+        ("Darius", "..."),
+        ("Darius", "Aneh."),
+        ("Darius", "Aku menghabiskan bertahun-tahun menjaga desa ini."),
+        ("Darius", "Tapi saat akhirnya semuanya berakhir... justru orang-orang asing yang memberiku alasan untuk terus melangkah."),
+        ("Arga", "..."),
+        ("Darius", "Aku tidak tahu apakah aku pantas berjalan bersama kalian."),
+        ("Darius", "Aku gagal melindungi tempat yang paling ingin kulindungi."),
+        ("Arga", "Kalau itu yang kau sebut gagal, aku tidak ingin membayangkan seperti apa bentuk keberhasilanmu."),
+        ("Elena", "Tidak semua yang hilang bisa diselamatkan, Darius."),
+        ("Elena", "Tapi masih ada banyak hal yang bisa kau lindungi mulai hari ini."),
+        ("Darius", "..."),
+        ("Darius", "Mungkin kalian benar."),
+        ("Darius", "Aku tidak bisa terus berdiri di antara puing-puing ini dan berpura-pura bahwa masa lalu masih ada."),
+        ("Darius", "Desa ini sudah memilih jalannya."),
+        ("Darius", "Dan kurasa... sekarang giliranku untuk memilih jalan milikku."),
+        ("Reno", "Nah, itu baru kedengarannya seperti seorang petarung!"),
+        ("Lyra", "Jangan rusak suasananya."),
+        ("Reno", "Aku cuma berusaha memberi semangat."),
+        ("Darius", "Haha"),
+        ("Darius", "Baiklah."),
+        ("Darius", "Aku akan ikut dengan kalian."),
+        ("Darius", "Jika masih ada orang yang membutuhkanku... maka aku tidak akan menyia-nyiakan kesempatan itu."),
+        ("Arga", "Senang mendengarnya."),
+        ("Elena", "Selamat datang."),
+        ("Reno", "Fiyuhhh! Akhirnya ada orang normal di kelompok ini."),
+        ("Lyra", "Kupikir itu justru mengurangi jumlah orang normal menjadi nol."),
+        ("Darius", "...Aku mulai mengerti kenapa kalian bisa bertahan sejauh ini."),
+        ("SYSTEM", "⭐ Darius bergabung dengan party.")
+
     ]
 
     # ── Pesan setelah semua dialog selesai, sebelum musuh muncul ──────────────
@@ -112,7 +216,7 @@ class Chapter3Scene(Scene):
         "ruins":   [
             ("Lyra",   "Energi sihir kuno ini mulai bereaksi..."),
             ("Arga",   "Hati-hati semua. Ada yang datang dari arah sana!"),
-            ("SYSTEM", "⚠ Stone Golem bangkit dari reruntuhan!"),
+            ("SYSTEM", "⚠ Monster bangkit dari reruntuhan!"),
         ],
         "village": [
             ("Darius", "Suara langkah kaki... mereka datang lagi sialan!"),
@@ -122,30 +226,52 @@ class Chapter3Scene(Scene):
     }
 
     CAMPFIRE_DLGS = [
-        ("Arga",   "Akhirnya bisa istirahat sebentar..."),
-        ("Reno",   "Istirahat? Kita baru saja sampai di kamp ini."),
-        ("Elena",  "Biarkan dia. Hari ini panjang untuk semua orang."),
-        ("Lyra",   "...Berapa lama lagi kita punya waktu sebelum tiba di kastil?"),
-        ("Elena",  "Menurut peta, dua hari perjalanan lagi."),
-        ("Darius", "Dua hari. Terasa singkat sekaligus terlalu lama."),
-        ("Reno",   "Kamu selalu filosofis begitu, Darius."),
-        ("Darius", "Ini bukan filosofi. Ini kenyataan."),
-        ("Arga",   "...Hey. Sebelum kita tidur—"),
-        ("Elena",  "Arga?"),
-        ("Arga",   "Makasih. Semuanya. Kalian tidak harus di sini."),
-        ("Reno",   "Hei, aku yang minta ikut duluan. Jangan balik-balik ucapan terima kasih."),
-        ("Lyra",   "Aku tidak melakukan ini untukmu. Aku melakukan ini untuk ketuaku."),
-        ("Lyra",   "Tapi... hasil akhirnya sama. Jadi tidak masalah."),
-        ("Darius", "Desaku sudah tidak ada. Tapi kamu bilang mungkin tidak ada desa lain yang bernasib sama."),
-        ("Darius", "Aku pegang kata-katamu."),
-        ("Elena",  "Arga... kamu tidak sendirian. Sudah dari awal, sebenarnya."),
-        ("Arga",   "...Iya. Aku tahu sekarang."),
-        ("Arga",   "Besok kita akhiri ini. Bersama."),
-        ("Reno",   "Nah gitu dong! Sekarang tidur — besok kita hajar Raja Iblis itu!"),
-        ("Lyra",   "...Cara penyampaianmu sangat tidak elegan."),
-        ("Reno",   "Tapi benar kan?"),
-        ("Lyra",   "...Ya. Benar."),
-        ("SYSTEM", "★ Party beristirahat menjelang pertempuran terakhir."),
+        ("Arga", "Akhirnya bisa duduk sebentar juga."),
+        ("Reno", "Baru juga sampai di sini, sudah mengeluh capek."),
+        ("Arga", "Aku lebih suka menyebutnya menghargai waktu istirahat."),
+        ("Lyra", "...Besok kita langsung kembali ke kerajaan?"),
+        ("Elena", "Ya."),
+        ("Elena", "Kita harus melaporkan apa yang terjadi di desa ini secepat mungkin."),
+        ("Darius", "Kalau laporan itu membuat mereka akhirnya bergerak, mungkin pengorbanan desa itu tidak sia-sia."),
+        ("Reno", "Kedengarannya aku tidak akan pernah terbiasa mendengar caramu bicara."),
+        ("Darius", "Lalu jangan biasakan."),
+        ("Reno", "Nah, itu lebih parah."),
+        ("Arga", "Menurutmu Raja akan mempercayai laporan kita?"),
+        ("Elena", "Seharusnya."),
+        ("Elena", "Kita punya saksi, bukti, dan sekarang juga punya seseorang yang melihat semuanya secara langsung."),
+        ("Darius", "...Aku akan mengatakan apa yang kulihat."),
+        ("Darius", "Tidak lebih dan tidak kurang."),
+        ("Lyra", "Semoga saja para bangsawan itu benar-benar mendengarkan."),
+        ("Lyra", "Terlalu banyak orang mati karena mereka terlambat bertindak."),
+        ("Elena", "..."),
+        ("Arga", "Kalau mereka tidak mendengarkan, kita cari cara lain."),
+        ("Reno", "Nah, itu baru semangat."),
+        ("Reno", "Tapi semoga saja kita tidak perlu menerobos istana atau semacamnya."),
+        ("Lyra", "Aneh sekali. Untuk pertama kalinya aku setuju denganmu."),
+        ("Reno", "Aku akan menganggap itu pujian."),
+        ("Darius", "..."),
+        ("Darius", "Kalian tahu."),
+        ("Darius", "Beberapa jam lalu aku mengira akan menghabiskan sisa hidupku sendirian di desa itu."),
+        ("Darius", "Sekarang aku malah duduk di sekitar api unggun bersama orang-orang yang bahkan belum kukenal seminggu."),
+        ("Arga", "Menyesal sudah ikut?"),
+        ("Darius", "...Belum."),
+        ("Reno", "Wah, kemajuan besar."),
+        ("Elena", "hahaha."),
+        ("Arga", "Terima kasih sudah mempercayai kami, Darius."),
+        ("Darius", "Aku tidak mempercayai kalian."),
+        ("Reno", "Tuh kan."),
+        ("Darius", "...Belum sepenuhnya."),
+        ("Darius", "Tapi aku percaya pada keputusan yang kuambil."),
+        ("Lyra", "Hmph."),
+        ("Lyra", "Kurasa itu sudah cukup."),
+        ("Elena", "Besok perjalanan masih panjang."),
+        ("Arga", "Ya."),
+        ("Arga", "Kita kembali ke kerajaan, menyampaikan semua yang kita tahu, lalu lihat ke mana jalan membawa kita setelah itu."),
+        ("Reno", "Dan sekarang, semuanya tidur."),
+        ("Lyra", "Akhirnya ada satu ide bagus darimu hari ini."),
+        ("Reno", "Aku akan menganggap itu pujian juga."),
+        ("SYSTEM", "★ Party beristirahat sebelum melanjutkan perjalanan kembali ke Kerajaan.")
+
     ]
 
     MONTAGE_TEXT = [
@@ -169,6 +295,7 @@ class Chapter3Scene(Scene):
         self._transition = TransitionScreen(game.W, game.H)
         self._narrator = NarratorBox(game.W, game.H)
         self._floats: list[FloatingText] = []
+        self._party_hud = PartyHUD()
 
         ground_y = int(game.H * 0.62)
         self._ground_y = ground_y
@@ -642,7 +769,7 @@ class Chapter3Scene(Scene):
 
     def _spawn_fire(self, dt):
         for _ in range(int(8 * dt * 60)):
-            ox = random.choice([120, 280, 620, 800])
+            W = self._game.W; ox = random.choice([int(W*0.094), int(W*0.219), int(W*0.484), int(W*0.625)])
             self._fire_particles.append({
                 'x': ox + random.randint(-20, 20),
                 'y': self._ground_y,
@@ -719,6 +846,13 @@ class Chapter3Scene(Scene):
 
         self._narrator.draw(surface)
         self._dialogue.draw(surface)
+        members = [("Arga", self._player.hp, self._player.max_hp),
+                  ("Elena", self._elena.hp, self._elena.max_hp)]
+        if "Reno"   in self._party_display: members.append(("Reno",   self._reno.hp,   self._reno.max_hp))
+        if "Lyra"   in self._party_display: members.append(("Lyra",   self._lyra.hp,   self._lyra.max_hp))
+        if "Darius" in self._party_display: members.append(("Darius", self._darius.hp, self._darius.max_hp))
+        self._party_hud.draw(surface, members)
+        
         self._transition.draw(surface)
 
         # Label lokasi
@@ -726,7 +860,7 @@ class Chapter3Scene(Scene):
             "forest":   "Hutan Verdan",
             "ruins":    "Reruntuhan Sihir Kuno",
             "village":  "Desa Karavel — Terbakar",
-            "campfire": "Kamp Party — Malam Sebelum Perang",
+            "campfire": "Kamp — Malam Sebelum Perang",
             "montage":  "Satu Tahun Berlalu...",
         }
         lbl = lbl_map.get(phase_base, "")

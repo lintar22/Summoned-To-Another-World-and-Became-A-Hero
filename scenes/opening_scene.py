@@ -25,7 +25,7 @@ class OpeningScene(Scene):
         self._dialogue = DialogueBox(game.W, game.H)
         self._transition = TransitionScreen(game.W, game.H)
         self._narrator = NarratorBox(game.W, game.H)
-        self._rain_drops = self._gen_rain()
+        self._rain_drops = self._gen_rain(game.W, game.H)
         self._magic_circles = []
         self._dialogue_step = 0
 
@@ -71,20 +71,21 @@ class OpeningScene(Scene):
             ("Arga", "Tunggu— APA INI?!"),
         ]
 
-    def _gen_rain(self):
+    def _gen_rain(self, W=1280, H=720):
         drops = []
         for _ in range(120):
             drops.append({
-                'x': random.randint(0, 960),
-                'y': random.randint(0, 540),
+                'x': random.randint(0, W),
+                'y': random.randint(0, H),
                 'speed': random.uniform(300, 500),
                 'length': random.randint(8, 18),
             })
         return drops
 
     def _gen_stars(self):
+        W, H = self._game.W, self._game.H
         random.seed(77)
-        return [{'x':random.randint(0,960),'y':random.randint(0,340),
+        return [{'x':random.randint(0, W),'y':random.randint(0, int(H*0.63)),
                  'size':random.choice([1,1,2]),'phase':random.uniform(0,6)} for _ in range(120)]
 
     def on_enter(self) -> None:
@@ -156,9 +157,9 @@ class OpeningScene(Scene):
         for d in self._rain_drops:
             d['y'] += d['speed'] * dt
             d['x'] += d['speed'] * 0.2 * dt
-            if d['y'] > 540:
+            if d['y'] > self._game.H:
                 d['y'] = 0
-                d['x'] = random.randint(0, 960)
+                d['x'] = random.randint(0, self._game.W)
 
         if self._phase == "title":
             self._title_alpha = min(255, self._title_alpha + 200*dt)
@@ -231,7 +232,7 @@ class OpeningScene(Scene):
             try:
                 hint = self._font_hint.render("[ Press any key to continue ]", True, UI_DIMTEXT)
                 hint.set_alpha(alpha)
-                surface.blit(hint, (self._game.W//2 - hint.get_width()//2, 480))
+                surface.blit(hint, (self._game.W//2 - hint.get_width()//2, int(self._game.H * 0.667)))
             except Exception:
                 pass
 

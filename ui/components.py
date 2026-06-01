@@ -488,3 +488,29 @@ class NarratorBox:
             txt = self._font.render(line, True, (230, 220, 200))
             txt.set_alpha(alpha)
             surface.blit(txt,(self.W//2-txt.get_width()//2, self.H//2-total_h//2+10+i*30))
+
+class PartyHUD:
+    """HUD party pojok kiri atas — nama putih + HP bar hijau."""
+
+    def __init__(self):
+        try:
+            self._font = pygame.font.SysFont("Georgia", 13)
+        except Exception:
+            self._font = pygame.font.Font(None, 15)
+
+    def draw(self, surface, members):
+        """
+        members = list of tuple: [("Arga", hp, max_hp), ("Elena", hp, max_hp), ...]
+        """
+        for i, (name, hp, max_hp) in enumerate(members):
+            px, py = 10, 10 + i * 44
+            panel = pygame.Surface((165, 38), pygame.SRCALPHA)
+            pygame.draw.rect(panel, (8, 6, 20, 180), (0, 0, 165, 38), border_radius=5)
+            pygame.draw.rect(panel, UI_BORDER, (0, 0, 165, 38), 1, border_radius=5)
+            surface.blit(panel, (px, py))
+            nm = self._font.render(name, True, (255, 255, 255))
+            surface.blit(nm, (px + 6, py + 4))
+            pygame.draw.rect(surface, (30, 20, 30), (px + 6, py + 22, 135, 9), border_radius=3)
+            ratio = max(0, hp / max(1, max_hp))
+            pygame.draw.rect(surface, (60, 200, 80),
+                             (px + 6, py + 22, int(135 * ratio), 9), border_radius=3)

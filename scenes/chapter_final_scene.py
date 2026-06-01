@@ -11,34 +11,112 @@ import math
 import random
 from engine.base import Scene
 from engine.colors import *
-from ui.components import DialogueBox, TransitionScreen, NarratorBox, FloatingText, BattleUI
+from ui.components import DialogueBox, TransitionScreen, NarratorBox, FloatingText, BattleUI, PartyHUD
 
 
 class ChapterFinalScene(Scene):
     """Final Chapter: Kastil Raja Iblis, Final Battle, Branching Ending."""
 
     PRE_BATTLE_DLGS = [
-        ("King Aldric", "Kalian telah membawa harapan bagi dunia yang hampir padam."),
-        ("King Aldric", "Satu tahun lalu, saya tidak tahu apakah kita akan sampai sejauh ini."),
-        ("King Aldric", "Sekarang... Raja Iblis menunggu di utara. Ini saat terakhir."),
-        ("Elena",       "...Takut?"),
-        ("Arga",        "Sedikit. Kau?"),
-        ("Elena",       "Juga sedikit. Tapi selama kita bersama... aku yakin."),
-        ("Reno",        "Hah! Kita sudah kalahkan tiga naga! Raja Iblis cuma satu."),
-        ("Lyra",        "...Jangan anggap remeh. Aura-nya sudah terasa dari sini."),
-        ("Darius",      "Kita tidak boleh kalah. Terlalu banyak orang yang mengandalkan kita."),
-        ("Elena",       "Arga... pegang ini."),
-        ("SYSTEM",      "🌟 Elena memberikan jimat keberuntungan kepada Arga."),
-        ("SYSTEM",      "⚔ CHAPTER FINAL — DEMON KING CASTLE"),
+        ("King Aldric", "Jadi kalian berhasil kembali."),
+        ("Arga", "Untungnya begitu."),
+        ("King Aldric", "Aku sudah membaca laporan kalian."),
+        ("King Aldric", "Desa yang hancur, pergerakan pasukan iblis, dan benteng-benteng yang mulai terancam."),
+        ("King Aldric", "...Keadaannya lebih buruk dari yang kuduga."),
+        ("Darius", "Itu baru sebagian kecil dari apa yang terjadi di luar sana."),
+        ("SYSTEM", "Ruang aula menjadi hening sejenak."),
+        ("King Aldric", "Meski begitu, kalian sudah melakukan banyak hal."),
+        ("King Aldric", "Lebih banyak daripada yang bisa kuharapkan setahun lalu."),
+        ("King Aldric", "Jujur saja, waktu itu aku bahkan tidak yakin kerajaan ini bisa bertahan."),
+        ("Reno", "Wah, langsung berat begitu ya pembukaannya."),
+        ("Lyra", "Kalau tidak kuat dengar kenyataan, keluar saja."),
+        ("Reno", "Aku cuma bercanda."),
+        ("King Aldric", "*tersenyum tipis*"),
+        ("King Aldric", "Bagaimanapun juga, sekarang kita punya kesempatan."),
+        ("King Aldric", "Mata-mata kami akhirnya menemukan lokasi Raja Iblis."),
+        ("Elena", "...Jadi benar-benar sudah waktunya."),
+        ("King Aldric", "Ya."),
+        ("King Aldric", "Dia berada di utara."),
+        ("King Aldric", "Dan kalau laporan ini benar, dia tidak berniat bersembunyi lagi."),
+        ("Arga", "..."),
+        ("King Aldric", "Aku tidak akan memaksa kalian."),
+        ("King Aldric", "Kalian sudah melakukan lebih dari cukup."),
+        ("King Aldric", "Tapi jika ada seseorang yang bisa menghentikan semua ini, itu adalah kalian."),
+        ("Darius", "Pilihan kami sudah dibuat sejak lama."),
+        ("Lyra", "Kalau kita berhenti sekarang, semua yang sudah terjadi jadi sia-sia."),
+        ("Reno", "Lagipula kita sudah sejauh ini."),
+        ("Reno", "Nanggung kalau pulang sekarang."),
+        ("Lyra", "Kau benar-benar tidak bisa serius, ya?"),
+        ("Reno", "Aku serius."),
+        ("Reno", "Sedikit."),
+        ("Elena", "*tertawa kecil*"),
+        ("Elena", "Takut?"),
+        ("Arga", "...Sedikit."),
+        ("Arga", "Kau juga?"),
+        ("Elena", "Jelas."),
+        ("Elena", "Aku akan lebih khawatir kalau tidak ada yang takut menghadapi Raja Iblis."),
+        ("Reno", "Nah, aku tidak takut."),
+        ("Lyra", "Karena otakmu tidak sampai ke sana."),
+        ("Reno", "Sakit juga ternyata."),
+        ("Darius", "Takut bukan masalah."),
+        ("Darius", "Yang penting kita tetap melangkah."),
+        ("Arga", "...Benar juga."),
+        ("King Aldric", "Kalau begitu, aku tidak akan menahan kalian lebih lama."),
+        ("King Aldric", "Pasukan kerajaan akan mengawal kalian sampai perbatasan utara."),
+        ("King Aldric", "Setelah itu, jalan menuju kastil sepenuhnya berada di wilayah musuh."),
+        ("Elena", "Jadi mulai dari sana, kita benar-benar sendirian."),
+        ("King Aldric", "Ya."),
+        ("King Aldric", "Aku berharap bisa mengirim lebih banyak bantuan."),
+        ("Darius", "Pasukan biasa hanya akan menjadi korban."),
+        ("Darius", "Kita semua tahu itu."),
+        ("King Aldric", "...Benar."),
+        ("Lyra", "Setidaknya dia jujur."),
+        ("Reno", "Nah, kalau begitu tidak ada lagi yang perlu dibahas."),
+        ("Reno", "Kita datang, kita menang, lalu pulang sebagai pahlawan."),
+        ("Lyra", "Rencanamu selalu terdengar terlalu sederhana."),
+        ("Reno", "Karena memang sederhana."),
+        ("Lyra", "Tidak. Itu namanya bodoh."),
+        ("Reno", "Detail kecil."),
+        ("Elena", "hahhh....."),
+        ("King Aldric", "hahaha..."),
+        ("King Aldric", "Meski situasinya seperti ini, aku senang kalian masih bisa tersenyum."),
+        ("King Aldric", "Jangan kehilangan itu."),
+        ("King Aldric", "Dunia sudah terlalu lama hidup dalam ketakutan."),
+        ("King Aldric", "Atas nama kerajaan."),
+        ("King Aldric", "Atas nama mereka yang telah gugur."),
+        ("King Aldric", "Dan atas nama mereka yang masih berharap melihat hari esok."),
+        ("King Aldric", "Aku mempercayakan masa depan dunia kepada kalian."),
+        ("Arga", "...Kami akan kembali."),
+        ("Darius", "Dan kali ini, kami akan mengakhirinya."),
+        ("Lyra", "Bagaimanapun caranya."),
+        ("Reno", "Nah, itu baru semangat."),
+        ("Elena", "Ayo."),
+        ("Elena", "Kita masih punya perjalanan panjang."),
+        ("Reno", "Baiklah."),
+        ("Reno", "Tujuan berikutnya: Kastil Raja Iblis."),
+        ("Lyra", "Untuk seseorang yang selalu bercanda, kau terdengar cukup serius hari ini."),
+        ("Reno", "...Ya."),
+        ("Reno", "Kurasa sekarang memang waktunya serius."),
+        ("Darius", "Kalau begitu jangan mati sebelum pertarungan dimulai."),
+        ("Reno", "Aku bisa bilang hal yang sama padamu."),
+        ("Elena", "*tersenyum kecil*"),
+        ("Arga", "Ayo pergi."),
+        ("Arga", "Kita akhiri semuanya."),
+        ("SYSTEM", "Merekapun akhirnya meninggalkan aula kerajaan."),
+        ("SYSTEM", "Langkah mereka bergema di lorong-lorong istana yang sunyi."),
+        ("SYSTEM", "⚔ Kelompok Pahlawan memulai perjalanan menuju Kastil Raja Iblis."),
+        ("SYSTEM", "⚔ CHAPTER FINAL — DEMON KING CASTLE")
+        
+
     ]
 
     DUNGEON_DLGS = [
         ("Reno",   "Monster di mana-mana! Tapi kita sudah terlalu jauh untuk mundur!"),
-        ("Lyra",   "Simpan tenagamu. Ini bukan boss sesungguhnya."),
-        ("Darius", "Aku yang di depan. Arga — kau di tengah lindungi Elena."),
-        ("Arga",   "Bersama. Kita masuk bersama."),
+        ("Lyra",   "Simpan tenagamu. Ini bukan boss yang sesungguhnya."),
+        ("Darius", "Aku yang di depan. Arga, kau di tengah lindungi Elena."),
+        ("Arga",   "Ya, ayo kita masuk bersama-sama!."),
         ("Elena",  "Lorong ini... terasa seperti kuburan."),
-        ("Lyra",   "Karena memang begitu. Ini sisa jiwa yang terserap Raja Iblis."),
+        ("Lyra",   "Karena memang begitu. Ini merupakan sisa-sisa jiwa yang terserap Raja Iblis."),
         ("SYSTEM", "🚪 Pintu besar di ujung lorong... terbuka perlahan."),
     ]
 
@@ -53,9 +131,8 @@ class ChapterFinalScene(Scene):
 
     PHASE1_DLGS = [
         ("Reno",   "SERANG! Jangan beri dia kesempatan!"),
-        ("Lyra",   "Barrier-nya kuat — butuh terobosan besar!"),
+        ("Lyra",   "Barrier-nya kuat. butuh terobosan besar!"),
         ("Darius", "Aku tahan serangan kanannya! Kalian serang kiri!"),
-        ("Arga",   "DIVINE SLASH!"),
     ]
 
     ELENA_HIT_DLGS = [
@@ -104,6 +181,7 @@ class ChapterFinalScene(Scene):
         self._narrator   = NarratorBox(game.W, game.H)
         self._battle_ui  = BattleUI(game.W, game.H)
         self._floats: list[FloatingText] = []
+        self._party_hud = PartyHUD()
 
         from entities.characters import Player, PartyNPC, BossNPC, TownNPC
         ground_y = int(game.H * 0.72)
@@ -226,16 +304,16 @@ class ChapterFinalScene(Scene):
                 # Semua dialog dungeon selesai → tampilkan warning Dark Knight
                 self._phase = "dungeon_warning"
                 self._dungeon_warn_step = 0
-                self._dialogue.show("Dark Knight menghalangi jalan ke singgasana!", "Reno")
+                self._dialogue.show("Monster-monster menghalangi jalan ke singgasana!", "Reno")
                 self._game.assets.play("damage")
 
         elif self._phase == "dungeon_warning":
             self._dungeon_warn_step = getattr(self, '_dungeon_warn_step', 0) + 1
             _dungeon_warns = [
-                ("Reno",   "Dark Knight menghalangi jalan ke singgasana!"),
-                ("Lyra",   "Dua Dark Knight. Formasi pertahanan segera!"),
+                ("Reno",   "Monster-monster menghalangi jalan ke singgasana!"),
+                ("Lyra",   "Ada banyak monster. Hati-Hati!"),
                 ("Darius", "Biarkan aku tahan satu. Kalian tangani yang lain!"),
-                ("SYSTEM", "⚠ Dark Knight muncul dari kegelapan lorong!"),
+                ("SYSTEM", "⚠ Monster muncul dari kegelapan lorong!"),
             ]
             if self._dungeon_warn_step < len(_dungeon_warns):
                 spk, txt = _dungeon_warns[self._dungeon_warn_step]
@@ -733,6 +811,14 @@ class ChapterFinalScene(Scene):
 
         self._narrator.draw(surface)
         self._dialogue.draw(surface)
+        members = [
+            ("Arga",   self._player.hp, self._player.max_hp),
+            ("Elena",  self._elena.hp,  self._elena.max_hp),
+            ("Reno",   self._reno.hp,   self._reno.max_hp),
+            ("Lyra",   self._lyra.hp,   self._lyra.max_hp),
+            ("Darius", self._darius.hp, self._darius.max_hp),
+        ]
+        self._party_hud.draw(surface, members)
         self._transition.draw(surface)
 
         # Label lokasi
@@ -740,13 +826,13 @@ class ChapterFinalScene(Scene):
             "pre_battle":    "Aula Kerajaan Astravia — Malam Sebelum Perang",
             "dungeon":             "Lorong Kastil Raja Iblis",
             "dungeon_warning":     "Lorong Kastil Raja Iblis",
-            "dungeon_encounter":   "Lorong Kastil — Dark Knight Menghalangi!",
+            "dungeon_encounter":   "Lorong Kastil — Monster Menghalangi!",
             "boss_intro":          "Singgasana Kegelapan — Final Boss",
             "boss_intro_encounter":"Singgasana Kegelapan — ⚔ Dekati Demon King!",
             "phase1":        "Final Battle — Phase 1",
             "attacking_boss":"Final Battle",
             "elena_hit":     "Final Battle — CRISIS!",
-            "true_end":      "TRUE END ROUTE — Celestial Overdrive",
+            "true_end":      "TRUE END ROUTE",
             "bad_end":       "BAD END ROUTE",
         }
         lbl = lbl_map.get(self._phase, "")

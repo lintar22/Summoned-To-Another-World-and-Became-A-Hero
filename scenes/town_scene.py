@@ -17,7 +17,7 @@ import math
 import random
 from engine.base import Scene
 from engine.colors import *
-from ui.components import DialogueBox, TransitionScreen, NarratorBox, FloatingText
+from ui.components import DialogueBox, TransitionScreen, NarratorBox, FloatingText, PartyHUD
 from entities.characters import Player, PartyNPC, TownNPC, MonsterNPC
 
 
@@ -65,6 +65,7 @@ class Chapter2Scene(Scene):
         self._transition = TransitionScreen(game.W, game.H)
         self._narrator = NarratorBox(game.W, game.H)
         self._floats: list[FloatingText] = []
+        self._party_hud = PartyHUD()
 
         ground_y = int(game.H * 0.6)
         self._ground_y = ground_y
@@ -85,13 +86,11 @@ class Chapter2Scene(Scene):
             ("Warga Kota 2", 1020, "Aura yang kau bawa itu... mengingatkanku pada pahlawan dalam legenda. Semoga cerita ini berakhir berbeda.", "normal",(140, 160, 180)),
         ]:
             # Spawn di luar kanan layar, walk-in ke target_x (world space)
-            npc = TownNPC(name, game.W + 60 + nx, ground_y - 55, col)
+            npc = TownNPC(name, nx, ground_y - 55, col)
             npc.set_dialogues([dlg])
             npc.emotion = em
             npc._highlight = True
-            npc._target_x = float(nx)
             self._npcs.append(npc)
-        self._npcs_walkin_done = False
 
         # Encounter: 3 slime yang akan walk-in dari kanan setelah semua NPC selesai
         self._slimes: list[MonsterNPC] = []
@@ -301,6 +300,7 @@ class Chapter2Scene(Scene):
         self._narrator.update(dt)
         self._player.update(dt)
         self._elena.update(dt)
+        self._elena.follow(self._player)
         for npc in self._npcs:
             npc.update(dt)
 
@@ -336,20 +336,6 @@ class Chapter2Scene(Scene):
             self._cam_x = max(0, min(self._world_w - self._game.W, target_cam))
         else:
             self._player.set_walking(False)
-
-        # Walk-in NPC kota dari kanan (berjalan ke posisi target masing-masing)
-        if not self._npcs_walkin_done:
-            all_done = True
-            for npc in self._npcs:
-                tx = getattr(npc, '_target_x', npc.x)
-                if npc.x > tx + 2:
-                    npc.x = max(tx, npc.x - 180 * dt)
-                    npc._facing_right = False
-                    all_done = False
-                else:
-                    npc.x = tx
-            if all_done:
-                self._npcs_walkin_done = True
 
         # Update walk-in slime dari kanan
         if self._slimes_walkin_active:
@@ -462,18 +448,9 @@ class Chapter2Scene(Scene):
             pass
 
     def _draw_party_hud(self, surface):
-        members = [("Arga", HP_BAR), ("Elena", MAGIC_BLUE)]
-        for i, (name, col) in enumerate(members):
-            px2, py2 = 10, 10 + i * 44
-            panel = pygame.Surface((165, 38), pygame.SRCALPHA)
-            pygame.draw.rect(panel, (8, 6, 20, 180), (0, 0, 165, 38), border_radius=5)
-            pygame.draw.rect(panel, UI_BORDER, (0, 0, 165, 38), 1, border_radius=5)
-            surface.blit(panel, (px2, py2))
-            try:
-                f = pygame.font.SysFont("Georgia", 13)
-                nm = f.render(name, True, UI_TEXT)
-                surface.blit(nm, (px2 + 6, py2 + 4))
-                pygame.draw.rect(surface, (30, 20, 30), (px2 + 6, py2 + 22, 135, 9), border_radius=3)
-                pygame.draw.rect(surface, col, (px2 + 6, py2 + 22, 135, 9), border_radius=3)
-            except Exception:
-                pass
+        members = [
+            ("Arga",  self._player.hp, self._player.max_hp),
+            ("Elena", self._elena.hp,  self._elena.max_hp),
+        ]
+        self._party_hud.draw(surface, members)
+        

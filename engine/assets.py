@@ -267,28 +267,107 @@ class AssetManager:
         self.char_player_skill = self.char_arga_attack
         self.char_player_dead  = self.arga_dead_frames[0] if self.arga_dead_frames else self.arga_idle_after_front
 
-        # ── Elena (Heroine / Party) 
-        for state in ("idle", "attack", "hurt"):
-            setattr(self, f"char_elena_{state}",
-                    _load_char(heroes_dir, "elena", state, CS))
-        self.char_elena_portrait = _load_char(heroes_dir, "elena", "portrait", PS)
+        # ── Elena (Heroine / Party)
 
-        # ── Lyra (Party) 
         for state in ("idle", "attack", "hurt"):
-            setattr(self, f"char_lyra_{state}",
-                    _load_char(heroes_dir, "lyra", state, CS))
-        self.char_lyra_portrait = _load_char(heroes_dir, "lyra", "portrait", PS)
+            setattr(
+                self,
+                f"char_elena_{state}",
+                _load_char(heroes_dir, "elena", state, CS)
+            )
 
-        # ── Darius (Party) 
+        self.char_elena_portrait = _load_char(
+            heroes_dir,
+            "elena",
+            "portrait",
+            PS
+        )
+
+        # WALK ANIMATION
+        self.elena_walk_frames = _load_anim_frames(
+            os.path.join(heroes_dir, "elena", "walk"),
+            CS
+        )
+
+       # ── Lyra (Party)
+
         for state in ("idle", "attack", "hurt"):
-            setattr(self, f"char_darius_{state}",
-                    _load_char(heroes_dir, "darius", state, CS))
-        self.char_darius_portrait = _load_char(heroes_dir, "darius", "portrait", PS)
+            setattr(
+                self,
+                f"char_lyra_{state}",
+                _load_char(heroes_dir, "lyra", state, CS)
+            )
+
+        self.char_lyra_portrait = _load_char(
+            heroes_dir,
+            "lyra",
+            "portrait",
+            PS
+        )
+
+        # WALK ANIMATION
+        self.lyra_walk_frames = _load_anim_frames(
+            os.path.join(heroes_dir, "lyra", "walk"),
+            CS
+        )
+
+        # ── Darius (Party)
+
+        for state in ("idle", "attack", "hurt"):
+            setattr(
+                self,
+                f"char_darius_{state}",
+                _load_char(heroes_dir, "darius", state, CS)
+            )
+
+        self.char_darius_portrait = _load_char(
+            heroes_dir,
+            "darius",
+            "portrait",
+            PS
+        )
+        # WALK ANIMATION
+        self.darius_walk_frames = _load_anim_frames(
+            os.path.join(heroes_dir, "darius", "walk"),
+            CS
+        )
+        
+        # ── Reno (Party)
+        for state in ("idle", "attack", "hurt"):
+            setattr(
+                self,
+                f"char_reno_{state}",
+                _load_char(heroes_dir, "reno", state, CS)
+            )
+
+        self.char_reno_portrait = _load_char(
+            heroes_dir,
+            "reno",
+            "portrait",
+            PS
+        )
+        # WALK ANIMATION
+        self.reno_walk_frames = _load_anim_frames(
+            os.path.join(heroes_dir, "reno", "walk"),
+            CS
+        )
 
         # Silence alias references (no-op)
-        self.char_elena_idle; self.char_elena_attack; self.char_elena_portrait
-        self.char_darius_idle; self.char_darius_attack; self.char_darius_portrait
-        self.char_lyra_idle; self.char_lyra_attack; self.char_lyra_portrait
+        self.char_elena_idle
+        self.char_elena_attack
+        self.char_elena_portrait
+
+        self.char_darius_idle
+        self.char_darius_attack
+        self.char_darius_portrait
+
+        self.char_lyra_idle
+        self.char_lyra_attack
+        self.char_lyra_portrait
+
+        self.char_reno_idle
+        self.char_reno_attack
+        self.char_reno_portrait
 
         # ── Enemies 
         slime_dir = os.path.join(enemies_dir, "slime")

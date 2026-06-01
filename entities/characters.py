@@ -154,7 +154,7 @@ class Player(Character, BattleEntity):
     """
 
     ANIM_SPEEDS = {
-        "walk":   0.10,   # detik per frame (8 frame = ~0.8s per siklus)
+        "walk":   0.06,   # detik per frame (8 frame = ~0.8s per siklus)
         "idle":   0.50,   # idle lebih lambat, terasa natural
         "attack": 0.12,   # attack sedikit lebih lambat agar terlihat
         "hurt":   0.15,
@@ -350,12 +350,6 @@ class Player(Character, BattleEntity):
         if not drawn:
             self._draw_body(surface, x, y)
 
-        # Aura biru (efek visual, selalu tampil di atas sprite)
-        aura = pygame.Surface((60, 80), pygame.SRCALPHA)
-        alpha = int(abs(math.sin(self._anim_timer * 2)) * 30)
-        pygame.draw.rect(aura, (100, 150, 255, alpha), (0, 0, 60, 80))
-        surface.blit(aura, (x - 30, y - 78))
-
     def interact(self) -> str:
         return "player"
 
@@ -418,20 +412,14 @@ class TownNPC(NPC):
 
 
 class PartyNPC(NPC, BattleEntity):
-    """
-    [INHERITANCE] Anggota party.
-    [POLYMORPHISM] use_skill() unik per karakter.
-
-    Karakter party: Elena (heroine), Lyra, Darius
-    """
 
     PARTY_SKILLS = {
         "Elena":  {"skill": "Royal Heal",   "dmg": 0,   "heal": 500, "desc": "Sihir penyembuhan kerajaan"},
         "Lyra":   {"skill": "Arcane Burst", "dmg": 900, "heal": 0,   "desc": "Ledakan sihir murni"},
         "Darius": {"skill": "Iron Wall",    "dmg": 400, "heal": 0,   "desc": "Serangan dengan perisai baja"},
         "Luna":   {"skill": "Lunar Veil",   "dmg": 0,   "heal": 400, "desc": "Sihir bulan penyembuh"},
-        "Kael":   {"skill": "Storm Blade",  "dmg": 0,   "heal": 0,   "desc": "Serangan petir (fake)"},
-        "Aria":   {"skill": "Arcane Song",  "dmg": 0,   "heal": 0,   "desc": "Mantra penyemangat (fake)"},
+        "Kael":   {"skill": "Storm Blade",  "dmg": 0,   "heal": 0,   "desc": "Serangan petir"},
+        "Aria":   {"skill": "Arcane Song",  "dmg": 0,   "heal": 0,   "desc": "Mantra penyemangat"},
         "Reno":   {"skill": "Wild Strike",  "dmg": 600, "heal": 0,   "desc": "Serangan liar penuh tenaga"},
     }
 
@@ -448,74 +436,226 @@ class PartyNPC(NPC, BattleEntity):
     def __init__(self, char_name: str, x: float, y: float):
         col = self.COLORS.get(char_name, (150, 150, 150))
         super().__init__(char_name, x, y, col)
+
         self.__hp = 5000
         self.__max_hp = 5000
         self._knocked_out = False
 
+        self._anim_state = "idle"
+        self._frame_idx = 0
+        self._frame_timer = 0.0
+        self._is_walking = False
+        self.follow_target = None
+        self.follow_distance = 80
+
     @property
-    def hp(self): return self.__hp
+    def hp(self):
+        return self.__hp
+
     @property
-    def max_hp(self): return self.__max_hp
+    def max_hp(self):
+        return self.__max_hp
+
     @property
-    def knocked_out(self): return self._knocked_out
+    def knocked_out(self):
+        return self._knocked_out
 
     def use_skill(self, skill_name: str, target) -> dict:
-        """[POLYMORPHISM] Party NPC hanya melakukan FAKE ATTACK."""
         data = self.PARTY_SKILLS.get(self._name, {})
-        return {"damage": 0, "fake": True,
-                "desc": data.get("desc", ""), "skill": data.get("skill", "")}
+        return {
+            "damage": 0,
+            "fake": True,
+            "desc": data.get("desc", ""),
+            "skill": data.get("skill", "")
+        }
 
     def take_damage(self, amount: int) -> int:
         actual = min(self.__hp, amount)
         self.__hp -= actual
+
         if self.__hp <= 0:
             self._knocked_out = True
+
         return actual
 
     def is_alive(self) -> bool:
         return self.__hp > 0
 
+    def set_walking(self, moving: bool, direction_right=None):
+
+        self._is_walking = moving
+
+        if direction_right is not None:
+            self._facing_right = direction_right
+
+        if moving:
+            self._anim_state = "walk"
+        else:
+            self._anim_state = "idle"
+            
+    def follow(self, target):
+        self.follow_target = target
+    
+    def update(self, dt):
+
+        super().update(dt)
+
+        if self.follow_target:
+
+            target_x = (
+                self.follow_target._x
+                + self.follow_distance
+            )
+
+            diff = target_x - self._x
+
+            if abs(diff) > 3:
+
+                self._x += diff * 6 * dt
+
+                self.set_walking(
+                    True,
+                    diff > 0
+                )
+
+            else:
+
+                self.set_walking(False)
+
+        if self._anim_state != "walk":
+
+            self._frame_idx = 0
+            return
+
+        self._frame_timer += dt
+
+        if self._frame_timer >= 0.08:
+
+            self._frame_timer = 0
+            self._frame_idx += 1
+
+
     def draw(self, surface: pygame.Surface) -> None:
+
         x = int(self._x)
         y = int(self._y + self._bob_offset)
 
         if self._knocked_out:
+
             assets = _get_assets()
             drawn = False
+
             if assets:
+
                 name_lower = self._name.lower()
-                hurt = getattr(assets, f"char_{name_lower}_hurt", None)
+
+                hurt = getattr(
+                    assets,
+                    f"char_{name_lower}_hurt",
+                    None
+                )
+
                 if hurt is None:
-                    hurt = getattr(assets, f"char_{name_lower}_attack", None)
+                    hurt = getattr(
+                        assets,
+                        f"char_{name_lower}_attack",
+                        None
+                    )
+
                 if hurt:
-                    rot = pygame.transform.rotate(hurt, 90)
-                    rot = pygame.transform.scale(rot, (80, 40))
-                    surface.blit(rot, (x - 40, y - 30))
+
+                    rot = pygame.transform.rotate(
+                        hurt,
+                        90
+                    )
+
+                    rot = pygame.transform.scale(
+                        rot,
+                        (80, 40)
+                    )
+
+                    surface.blit(
+                        rot,
+                        (x - 40, y - 30)
+                    )
+
                     drawn = True
+
             if not drawn:
-                ko_s = pygame.Surface((70, 30), pygame.SRCALPHA)
-                pygame.draw.ellipse(ko_s, self._color, (0, 0, 70, 30))
-                surface.blit(ko_s, (x - 35, y - 20))
-            try:
-                font = pygame.font.SysFont("Georgia", 12)
-                txt = font.render("KO", True, (255, 60, 60))
-                surface.blit(txt, (x - txt.get_width() // 2, y - 40))
-            except Exception:
-                pass
+
+                ko_s = pygame.Surface(
+                    (70, 30),
+                    pygame.SRCALPHA
+                )
+
+                pygame.draw.ellipse(
+                    ko_s,
+                    self._color,
+                    (0, 0, 70, 30)
+                )
+
+                surface.blit(
+                    ko_s,
+                    (x - 35, y - 20)
+                )
+
             return
 
         assets = _get_assets()
+
         drawn = False
+
         if assets:
+
             name_lower = self._name.lower()
-            sprite = getattr(assets, f"char_{name_lower}_idle", None)
-            if sprite is None:
-                sprite = assets.get_character(self._name, "idle", (96, 96))
+
+            walk_frames = getattr(
+                assets,
+                f"{name_lower}_walk_frames",
+                []
+            )
+
+            if (
+                self._anim_state == "walk"
+                and len(walk_frames) > 0
+            ):
+
+                sprite = walk_frames[
+                    self._frame_idx
+                    % len(walk_frames)
+                ]
+
+            else:
+
+                sprite = getattr(
+                    assets,
+                    f"char_{name_lower}_idle",
+                    None
+                )
+
+                if sprite is None:
+                    sprite = assets.get_character(
+                        self._name,
+                        "idle",
+                        (96, 96)
+                    )
+
             if sprite is not None:
-                # Flip jika menghadap kiri
+
                 if not self._facing_right:
-                    sprite = pygame.transform.flip(sprite, True, False)
-                _blit_centered(surface, sprite, x, y)
+                    sprite = pygame.transform.flip(
+                        sprite,
+                        True,
+                        False
+                    )
+
+                _blit_centered(
+                    surface,
+                    sprite,
+                    x,
+                    y
+                )
+
                 drawn = True
 
         if not drawn:
@@ -523,7 +663,6 @@ class PartyNPC(NPC, BattleEntity):
 
     def interact(self) -> str:
         return super().interact()
-
 
 class BossNPC(NPC, BattleEntity):
     """
@@ -578,12 +717,6 @@ class BossNPC(NPC, BattleEntity):
         y = int(self._y + self._bob_offset)
         assets = _get_assets()
 
-        for r in range(80, 20, -20):
-            aura = pygame.Surface((r * 2, r * 2), pygame.SRCALPHA)
-            alpha = int(40 * (1 - r / 80))
-            pygame.draw.circle(aura, (80, 0, 120, alpha), (r, r), r)
-            surface.blit(aura, (x - r, y - r + 20))
-
         drawn = False
         if assets and assets.char_demon_king_idle is not None:
             sprite = assets.char_demon_king_idle
@@ -604,12 +737,6 @@ class BossNPC(NPC, BattleEntity):
                                 [(x+5, y-50), (x+15, y-80), (x+25, y-50)])
             pygame.draw.circle(surface, (255, 30, 30), (x-10, y-32), 6)
             pygame.draw.circle(surface, (255, 30, 30), (x+10, y-32), 6)
-
-        if self.__phase == 2:
-            phase_aura = pygame.Surface((120, 120), pygame.SRCALPHA)
-            t = abs(math.sin(self._anim_timer * 3))
-            pygame.draw.circle(phase_aura, (200, 0, 50, int(40 * t)), (60, 60), 60)
-            surface.blit(phase_aura, (x - 60, y - 60))
 
     def interact(self) -> str:
         return "Hahaha... coba saja!"

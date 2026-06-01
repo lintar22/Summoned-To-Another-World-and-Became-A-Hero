@@ -2,7 +2,6 @@ import pygame
 import sys
 from engine.game import Game
 
-
 def main():
     pygame.init()
     pygame.mixer.init(frequency=44100, size=-16, channels=2, buffer=512)
@@ -16,7 +15,6 @@ def main():
 
     pygame.quit()
     sys.exit()
-
 
 if __name__ == "__main__":
     main()

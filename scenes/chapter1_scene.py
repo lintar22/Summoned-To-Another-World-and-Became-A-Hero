@@ -10,7 +10,7 @@ import math
 import random
 from engine.base import Scene
 from engine.colors import *
-from ui.components import DialogueBox, TransitionScreen, StatusWindow, NarratorBox, FloatingText
+from ui.components import DialogueBox, TransitionScreen, StatusWindow, NarratorBox, FloatingText, PartyHUD
 from entities.characters import Player, PartyNPC, BossNPC, TownNPC
 
 
@@ -89,6 +89,7 @@ class Chapter1Scene(Scene):
         self._status_win = StatusWindow(game.W, game.H)
         self._narrator = NarratorBox(game.W, game.H)
         self._floats: list[FloatingText] = []
+        self._party_hud = PartyHUD()
 
         # Arga jatuh dari atas (summoned)
         self._player = Player(game.W//2, -80)
@@ -180,7 +181,7 @@ class Chapter1Scene(Scene):
                 else:
                     # Tolak → sistem paksa
                     self._dialogue.show(
-                        "You cannot refuse destiny.",
+                        "Kau tidak bisa menolak takdir.",
                         "SYSTEM"
                     )
                     self._choice_made = True
@@ -228,7 +229,7 @@ class Chapter1Scene(Scene):
                 self._show_status = True
                 self._status_win.visible = True
                 self._dialogue.show(
-                    "Kekuatan pedang suci telah tersegel dalam dirimu.\n[TAB] untuk lihat status kapan saja.",
+                    "Kekuatan pedang suci telah tersegel dalam dirimu.",
                     "SYSTEM"
                 )
 
@@ -394,6 +395,10 @@ class Chapter1Scene(Scene):
 
         self._narrator.draw(surface)
         self._dialogue.draw(surface)
+        members = [("Arga", self._player.hp, self._player.max_hp)]
+        if self._game.flags.get("elena_joined"):
+            members.append(("Elena", self._elena.hp, self._elena.max_hp))
+        self._party_hud.draw(surface, members)
         self._transition.draw(surface)
 
         for ft in self._floats:
