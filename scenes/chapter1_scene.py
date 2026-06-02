@@ -116,11 +116,11 @@ class Chapter1Scene(Scene):
 
         # Walk-in King dari kanan setelah Arga mendarat
         self._king_walkin_done = False
-        self._king_target_x = float(game.W // 2)
+        self._king_target_x = float(game.W // 2) + 160  # depan Arga, sedikit lebih jauh
 
         # Walk-in Elena: hanya saat fase elena
         self._elena_walkin_done = False
-        self._elena_target_x = float(game.W * 0.7)
+        self._elena_target_x = float(game.W * 0.65)  # dekat Arga, di belakang Raja
         self._elena_walkin_active = False
 
         try:
@@ -308,6 +308,7 @@ class Chapter1Scene(Scene):
             else:
                 self._king._x = tx
                 self._king_walkin_done = True
+                self._king._facing_right = False   # hadap kiri = berhadapan dengan Arga
                 self._king._facing_right = True    # King sudah tiba, hadap kanan (ke Arga)
                 # Hentikan animasi walk King
                 if hasattr(self._king, 'set_walking'):
@@ -329,6 +330,9 @@ class Chapter1Scene(Scene):
             else:
                 self._elena._x = tx
                 self._elena_walkin_active = False
+                self._elena_walkin_done   = True
+                self._elena.follow(self._player)
+                self._elena.follow_distance = -80
                 self._elena_walkin_done = True
                 self._elena._facing_right = False  # Elena sudah tiba, hadap kiri (ke Arga)
                 # Hentikan animasi walk Elena
@@ -346,8 +350,7 @@ class Chapter1Scene(Scene):
         self._narrator.update(dt)
         self._status_win.update(dt)
 
-        # Update walking state player (dia tidak bergerak di scene ini, tapi animasi idle jalan)
-        self._player.set_walking(False)
+        # Player idle di chapter1 (tidak bergerak bebas)
         self._player.update(dt)
         self._elena.update(dt)
         self._king.update(dt)

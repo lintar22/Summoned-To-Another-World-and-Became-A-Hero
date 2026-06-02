@@ -205,8 +205,10 @@ class BadEndScene(Scene):
         # Party — semua KO / hurt, berserakan di sebelah kiri
         self._player = Player(int(W * 0.28), gy - 55)
         self._player.before_isekai = False
-        self._player.play_hurt()
-        self._player._anim_once = False   # jangan balik ke idle
+        self._player._anim_state = "hurt"
+        self._player._frame_idx  = 2   # frame ke-3 (index 2) = hurt_3.png
+        self._player._anim_once  = True
+        self._player._anim_done  = True   # freeze, tidak advance
         
         self._elena  = PartyNPC("Elena",  int(W * 0.18), gy - 55)
         self._reno   = PartyNPC("Reno",   int(W * 0.12), gy - 55)
@@ -436,9 +438,11 @@ class BadEndScene(Scene):
             self._dlg_step      = 0
             self._on_phase_enter()
 
-        # Update karakter
+        # Update karakter — Arga freeze di hurt_3
         self._player.update(dt)
         self._player._anim_state = "hurt"
+        self._player._frame_idx  = 2
+        self._player._anim_done  = True
         self._elena.update(dt)
         self._reno.update(dt)
         self._lyra.update(dt)

@@ -155,6 +155,7 @@ class Player(Character, BattleEntity):
 
     ANIM_SPEEDS = {
         "walk":   0.06,   # detik per frame (8 frame = ~0.8s per siklus)
+        "idle":   0.18,   # detik per frame idle animasi samping
         "idle":   0.50,   # idle lebih lambat, terasa natural
         "attack": 0.12,   # attack sedikit lebih lambat agar terlihat
         "hurt":   0.15,
@@ -253,8 +254,8 @@ class Player(Character, BattleEntity):
             if self._anim_state == "walk":
                 return assets.arga_walk_before_frames
             else:
-                # Idle — gunakan frame side (tampak samping)
-                return [assets.arga_idle_before_side]
+                # Idle animasi samping — multi frame loop
+                return getattr(assets, "arga_idle_before_frames", [assets.arga_idle_before_side])
         else:
             if self._anim_state == "walk":
                 return assets.arga_walk_after_frames
@@ -267,8 +268,8 @@ class Player(Character, BattleEntity):
             elif self._anim_state == "defend":
                 return assets.arga_defend_frames
             else:
-                # Idle after isekai — gunakan frame side (tampak samping)
-                return [assets.arga_idle_after_side]
+                # Idle animasi samping — multi frame loop
+                return getattr(assets, "arga_idle_after_frames", [assets.arga_idle_after_side])
 
     def use_skill(self, skill_name: str, target) -> dict:
         """[POLYMORPHISM] Implementasi use_skill untuk Player (Arga)."""
@@ -318,6 +319,7 @@ class Player(Character, BattleEntity):
                 # Kembali ke idle setelah selesai
                 if self._anim_state in ("attack", "hurt"):
                     self._set_anim("idle")
+                    self._frame_idx = 0
             else:
                 self._frame_idx = (self._frame_idx + 1) % n
 
@@ -433,6 +435,9 @@ class PartyNPC(NPC, BattleEntity):
         "Reno":   (200, 120, 60),
     }
 
+    # Kecepatan animasi walk party (detik per frame)
+    WALK_FRAME_SPEED = 0.08
+
     def __init__(self, char_name: str, x: float, y: float):
         col = self.COLORS.get(char_name, (150, 150, 150))
         super().__init__(char_name, x, y, col)
@@ -441,12 +446,22 @@ class PartyNPC(NPC, BattleEntity):
         self.__max_hp = 5000
         self._knocked_out = False
 
-        self._anim_state = "idle"
-        self._frame_idx = 0
-        self._frame_timer = 0.0
-        self._is_walking = False
-        self.follow_target = None
+        self._anim_state      = "idle"
+        self._prev_anim_state = "idle"
+        self._frame_idx       = 0
+        self._frame_timer     = 0.0
+        self._is_walking      = False
+        self._hurt_pose = False
+
+        # ── Follow system ──────────────────────────────────────────
+        # follow_target   : Player/Character yang diikuti (None = tidak follow)
+        # follow_distance : offset X dari target (negatif = di belakang, positif = di depan)
+        # _follow_enabled : False saat walkin scene sedang berlangsung,
+        #                   True setelah walkin selesai → mulai follow normal
+        self.follow_target   = None
         self.follow_distance = 80
+        self.follow_offset_y = 0
+        self._follow_enabled = False   # diaktifkan dari scene setelah walkin selesai
 
     @property
     def hp(self):
@@ -482,180 +497,154 @@ class PartyNPC(NPC, BattleEntity):
         return self.__hp > 0
 
     def set_walking(self, moving: bool, direction_right=None):
-
+        """Kontrol animasi walk secara manual (dipanggil dari luar / walkin)."""
         self._is_walking = moving
-
         if direction_right is not None:
-            self._facing_right = direction_right
-
+            if self._facing_right != direction_right:
+                self._facing_right = direction_right
+                self._frame_idx = 0
+                self._frame_timer = 0.0
         if moving:
             self._anim_state = "walk"
         else:
             self._anim_state = "idle"
-            
+
     def follow(self, target):
+        """Set karakter yang akan diikuti."""
         self.follow_target = target
-    
+
+    def enable_follow(self):
+        """Aktifkan follow setelah walkin scene selesai."""
+        self._follow_enabled = True
+
+    def disable_follow(self):
+        """Matikan follow (misal saat walkin scene dimulai ulang)."""
+        self._follow_enabled = False
+
     def update(self, dt):
+        """Update posisi dan animasi PartyNPC."""
+        super().update(dt)   # Character.update → bob offset
 
-        super().update(dt)
-
-        if self.follow_target:
-
-            target_x = (
-                self.follow_target._x
-                + self.follow_distance
-            )
-
+        # ── Follow logic (hanya aktif jika _follow_enabled dan ada target) ──
+        # Saat walkin berlangsung, scene memanggil set_walking(True/False) langsung
+        # dan _follow_enabled = False, jadi blok ini tidak jalan → tidak bentrok.
+        if self._follow_enabled and self.follow_target is not None:
+            # follow_distance: negatif = di kiri Arga, positif = di kanan Arga
+            target_x = self.follow_target._x + self.follow_distance
+            target_y = self.follow_target._y + self.follow_offset_y
+            
             diff = target_x - self._x
 
-            if abs(diff) > 3:
-
-                self._x += diff * 6 * dt
-
-                self.set_walking(
-                    True,
-                    diff > 0
-                )
-
+            # Dead zone kecil agar tidak goyang-goyang saat hampir sampai
+            if abs(diff) > 1:
+                # Kecepatan catch-up proporsional dengan jarak (min 80, max 320 px/s)
+                speed = min(320.0, max(80.0, abs(diff) * 4.5))
+                move  = speed * dt if diff > 0 else -speed * dt
+                # Jangan overshooting
+                if abs(move) > abs(diff):
+                    move = diff
+                self._x += move
+                self._y = target_y
+                self.set_walking(True, diff > 0)
             else:
-
+                self._x = target_x
+                self._y = target_y
                 self.set_walking(False)
+                # Mirror facing mengikuti player saat idle
+                self._facing_right = self.follow_target._facing_right
 
-        if self._anim_state != "walk":
-
-            self._frame_idx = 0
+        # ── Frame animasi walk & idle ──────────────────────────────
+        IDLE_FRAME_SPEED = 0.18  # detik per frame idle
+        if self._anim_state == "walk":
+            frame_speed = self.WALK_FRAME_SPEED
+        elif self._anim_state == "idle":
+            frame_speed = IDLE_FRAME_SPEED
+        else:
+            # State lain (hurt pose, dll) — reset & keluar
+            if self._prev_anim_state != self._anim_state:
+                self._frame_idx   = 0
+                self._frame_timer = 0.0
+                self._prev_anim_state = self._anim_state
             return
 
+        # Reset frame saat baru ganti state
+        if self._prev_anim_state != self._anim_state:
+            self._frame_idx   = 0
+            self._frame_timer = 0.0
+            self._prev_anim_state = self._anim_state
+
         self._frame_timer += dt
-
-        if self._frame_timer >= 0.08:
-
-            self._frame_timer = 0
-            self._frame_idx += 1
+        if self._frame_timer >= frame_speed:
+            self._frame_timer -= frame_speed
+            self._frame_idx  += 1
 
 
     def draw(self, surface: pygame.Surface) -> None:
-
-        x = int(self._x)
-        y = int(self._y + self._bob_offset)
-
-        if self._knocked_out:
-
-            assets = _get_assets()
-            drawn = False
-
-            if assets:
-
-                name_lower = self._name.lower()
-
-                hurt = getattr(
-                    assets,
-                    f"char_{name_lower}_hurt",
-                    None
-                )
-
-                if hurt is None:
-                    hurt = getattr(
-                        assets,
-                        f"char_{name_lower}_attack",
-                        None
-                    )
-
-                if hurt:
-
-                    rot = pygame.transform.rotate(
-                        hurt,
-                        90
-                    )
-
-                    rot = pygame.transform.scale(
-                        rot,
-                        (80, 40)
-                    )
-
-                    surface.blit(
-                        rot,
-                        (x - 40, y - 30)
-                    )
-
-                    drawn = True
-
-            if not drawn:
-
-                ko_s = pygame.Surface(
-                    (70, 30),
-                    pygame.SRCALPHA
-                )
-
-                pygame.draw.ellipse(
-                    ko_s,
-                    self._color,
-                    (0, 0, 70, 30)
-                )
-
-                surface.blit(
-                    ko_s,
-                    (x - 35, y - 20)
-                )
-
-            return
-
+        x      = int(self._x)
+        y      = int(self._y + self._bob_offset)
         assets = _get_assets()
 
-        drawn = False
-
-        if assets:
-
-            name_lower = self._name.lower()
-
-            walk_frames = getattr(
-                assets,
-                f"{name_lower}_walk_frames",
-                []
-            )
-
-            if (
-                self._anim_state == "walk"
-                and len(walk_frames) > 0
-            ):
-
-                sprite = walk_frames[
-                    self._frame_idx
-                    % len(walk_frames)
-                ]
-
-            else:
-
-                sprite = getattr(
-                    assets,
-                    f"char_{name_lower}_idle",
-                    None
-                )
-
+        # ── 1. Hurt pose story (1 frame static, prioritas tertinggi) ──────────
+        if self._hurt_pose:
+            sprite = None
+            if assets:
+                name_lower = self._name.lower()
+                # Coba ambil sprite spesifik (misal reno_hurt4)
+                sprite = getattr(assets, f"{name_lower}_hurt4", None)
+                # Fallback ke char_{name}_hurt umum
                 if sprite is None:
-                    sprite = assets.get_character(
-                        self._name,
-                        "idle",
-                        (96, 96)
-                    )
+                    sprite = getattr(assets, f"char_{name_lower}_hurt", None)
+            if sprite is not None:
+                if not self._facing_right:
+                    sprite = pygame.transform.flip(sprite, True, False)
+                _blit_centered(surface, sprite, x, y)
+            else:
+                self._draw_body(surface, x, y)
+            return
+
+        # ── 2. KO state ────────────────────────────────────────────────────────
+        if self._knocked_out:
+            if assets:
+                name_lower = self._name.lower()
+                # Coba ambil dead pose spesifik per karakter
+                dead_map = {
+                    "reno":   "reno_dead5",
+                    "elena":  "elena_dead5",
+                    "lyra":   "lyra_dead6",
+                    "darius": "darius_dead7",
+                }
+                attr = dead_map.get(name_lower)
+                dead = getattr(assets, attr, None) if attr else None
+                if dead is None:
+                    dead = getattr(assets, f"char_{name_lower}_hurt", None)
+                if dead:
+                    if not self._facing_right:
+                        dead = pygame.transform.flip(dead, True, False)
+                    _blit_centered(surface, dead, x, y)
+                    return
+            self._draw_body(surface, x, y)
+            return
+
+        # ── 3. Normal (walk / idle) ────────────────────────────────────────────
+        drawn = False
+        if assets:
+            name_lower  = self._name.lower()
+            walk_frames = getattr(assets, f"{name_lower}_walk_frames", [])
+
+            idle_frames = getattr(assets, f"{name_lower}_idle_frames", [])
+            if self._anim_state == "walk" and walk_frames:
+                sprite = walk_frames[self._frame_idx % len(walk_frames)]
+            elif self._anim_state == "idle" and idle_frames:
+                sprite = idle_frames[self._frame_idx % len(idle_frames)]
+            else:
+                sprite = getattr(assets, f"char_{name_lower}_idle", None)
+                if sprite is None:
+                    sprite = assets.get_character(self._name, "idle", (96, 96))
 
             if sprite is not None:
-
                 if not self._facing_right:
-                    sprite = pygame.transform.flip(
-                        sprite,
-                        True,
-                        False
-                    )
-
-                _blit_centered(
-                    surface,
-                    sprite,
-                    x,
-                    y
-                )
-
+                    sprite = pygame.transform.flip(sprite, True, False)
+                _blit_centered(surface, sprite, x, y)
                 drawn = True
 
         if not drawn:

@@ -347,6 +347,18 @@ class Chapter3Scene(Scene):
         self._transition.fade_in(speed=160)
         self._narrator.show(["Chapter 3 — New Companions", "Hutan Verdan"], 3.0)
         self._dialogue.show(self.RENO_DLGS[0][1], self.RENO_DLGS[0][0])
+        # Reno terluka (1 frame hurt4) — terlihat di posisi dalam layar
+        self._reno._hurt_pose   = True
+        self._reno._facing_right = False   # menghadap kiri (ke arah Arga yang datang)
+        self._reno._x           = self._game.W * 0.62   # posisi di dalam layar
+        # Formasi: Lyra-Elena-Arga-Reno-Darius
+        self._elena.follow(self._player);  self._elena.follow_distance  = -80
+        self._reno.follow(self._player);   self._reno.follow_distance   =  80
+        self._lyra.follow(self._player);   self._lyra.follow_distance   = -160
+        self._darius.follow(self._player); self._darius.follow_distance =  160
+        # Matikan follow semua dulu, walkin yang kontrol posisi
+        for ch in (self._elena, self._reno, self._lyra, self._darius):
+            ch.disable_follow()
         self.start_walkin([
             (self._player, 200),
             (self._elena,  280),
@@ -391,7 +403,10 @@ class Chapter3Scene(Scene):
         elif self._sub_phase == "forest_warning":
             self._advance_warning()
 
-        elif self._sub_phase == "forest_post":
+        if self._sub_phase == "forest_post":
+            # Nonaktifkan hurt pose — Reno sudah selesai bertarung
+            self._reno._hurt_pose = False
+
             self._dlg_step += 1
             if self._dlg_step < len(self.RENO_POST_BATTLE):
                 spk, txt = self.RENO_POST_BATTLE[self._dlg_step]
@@ -401,6 +416,7 @@ class Chapter3Scene(Scene):
                     self._party_display.append("Reno")
                     self._game.party.append("Reno")
                     self._game.assets.play("fanfare")
+                    self._reno.enable_follow()
             else:
                 self._go_to_phase("ruins")
 
@@ -429,6 +445,7 @@ class Chapter3Scene(Scene):
                     self._party_display.append("Lyra")
                     self._game.party.append("Lyra")
                     self._game.assets.play("fanfare")
+                    self._lyra.enable_follow()
             else:
                 self._go_to_phase("village")
 
@@ -453,6 +470,7 @@ class Chapter3Scene(Scene):
                     self._party_display.append("Darius")
                     self._game.party.append("Darius")
                     self._game.assets.play("fanfare")
+                    self._darius.enable_follow()
             else:
                 self._go_to_phase("campfire")
 
@@ -639,30 +657,72 @@ class Chapter3Scene(Scene):
             self._enemies.clear()
             self._enemies_interactable = False
 
+            # Helper: matikan follow semua party sebelum walkin baru
+            def _disable_all_follow():
+                for ch in (self._elena, self._reno, self._lyra, self._darius):
+                    ch.disable_follow()
+
             if self._sub_phase == "forest_post":
                 self._transition.fade_in(speed=200)
+                # Arga & Elena hadap kanan ke arah Reno, Reno hadap kiri
+                W = self._game.W
+                self._player._x          = int(W * 0.30)
+                self._player._facing_right = True
+                self._elena._x           = int(W * 0.20)
+                self._elena._facing_right = True
+                self._reno._x            = int(W * 0.60)
+                self._reno._facing_right  = False
+                self._reno._hurt_pose    = False   # sudah selesai battle
+                # Matikan follow agar posisi tidak bergerak sendiri
+                for ch in (self._elena, self._reno):
+                    ch.disable_follow()
                 self._dialogue.show(self.RENO_POST_BATTLE[0][1], self.RENO_POST_BATTLE[0][0])
 
             elif self._sub_phase == "ruins":
                 self._transition.fade_in(speed=200)
                 self._narrator.show(["Reruntuhan Sihir — Lyra"], 2.5)
                 self._dialogue.show(self.LYRA_DLGS[0][1], self.LYRA_DLGS[0][0])
+                _disable_all_follow()
+                # Lyra sudah ada di scene — posisi di dalam layar, hadap kiri
+                W = self._game.W
+                self._lyra._x            = int(W * 0.68)
+                self._lyra._facing_right  = False   # menghadap ke arah Arga datang
+                self._lyra.disable_follow()
+                # Hanya Arga, Elena, Reno yang walkin masuk
                 self.start_walkin([
                     (self._player, 200),
                     (self._elena,  280),
                     (self._reno,   360),
-                    (self._lyra,   700),
                 ])
 
             elif self._sub_phase == "ruins_post":
                 self._transition.fade_in(speed=200)
+                # Posisi ngobrol: Arga, Elena, Reno hadap kanan ke Lyra
+                W = self._game.W
+                self._player._x           = int(W * 0.22)
+                self._player._facing_right = True
+                self._elena._x            = int(W * 0.14)
+                self._elena._facing_right  = True
+                self._reno._x             = int(W * 0.31)
+                self._reno._facing_right   = True
+                self._lyra._x             = int(W * 0.55)
+                self._lyra._facing_right   = False   # Lyra hadap kiri ke arah party
+                for ch in (self._elena, self._reno, self._lyra):
+                    ch.disable_follow()
                 self._dialogue.show(self.LYRA_POST_BATTLE[0][1], self.LYRA_POST_BATTLE[0][0])
 
             elif self._sub_phase == "village":
                 self._transition.fade_in(speed=200)
                 self._narrator.show(["Desa Terbakar — Darius"], 2.5)
                 self._dialogue.show(self.DARIUS_DLGS[0][1], self.DARIUS_DLGS[0][0])
-                self._darius._x = 650
+                _disable_all_follow()
+                # Darius sudah ada di scene — hurt pose, hadap kiri (ke arah party datang)
+                W = self._game.W
+                self._darius._x            = int(W * 0.68)
+                self._darius._facing_right  = False
+                self._darius._hurt_pose    = True
+                self._darius.disable_follow()
+                # Party walkin masuk dari kiri
                 self.start_walkin([
                     (self._player, 200),
                     (self._elena,  280),
@@ -672,19 +732,48 @@ class Chapter3Scene(Scene):
 
             elif self._sub_phase == "village_post":
                 self._transition.fade_in(speed=200)
+                # Posisi ngobrol: party hadap kanan ke Darius, Darius hadap kiri
+                W = self._game.W
+                self._player._x            = int(W * 0.22)
+                self._player._facing_right  = True
+                self._elena._x             = int(W * 0.13)
+                self._elena._facing_right   = True
+                self._reno._x              = int(W * 0.31)
+                self._reno._facing_right    = True
+                self._lyra._x              = int(W * 0.40)
+                self._lyra._facing_right    = True
+                self._darius._x            = int(W * 0.60)
+                self._darius._facing_right  = False
+                self._darius._hurt_pose    = False   # sudah selesai battle
+                for ch in (self._elena, self._reno, self._lyra, self._darius):
+                    ch.disable_follow()
                 self._dialogue.show(self.DARIUS_POST_BATTLE[0][1], self.DARIUS_POST_BATTLE[0][0])
 
             elif self._sub_phase == "campfire":
                 self._transition.fade_in(speed=180)
                 self._narrator.show(["Malam Sebelum Perang", "Api Unggun Party"], 3.0)
                 self._dialogue.show(self.CAMPFIRE_DLGS[0][1], self.CAMPFIRE_DLGS[0][0])
+
+                _disable_all_follow()
+
+                self._lyra._y   = self._ground_y - 30
+                self._elena._y  = self._ground_y - 60
+
+                self._player._y = self._ground_y
+
+                self._reno._y   = self._ground_y - 60
+                self._darius._y = self._ground_y - 30
+
+                cx = self._game.W // 2
+
                 self.start_walkin([
-                    (self._player, 200),
-                    (self._elena,  290),
-                    (self._reno,   380),
-                    (self._lyra,   470),
-                    (self._darius, 560),
-                ])
+                        (self._lyra,   cx - 180),
+                        (self._elena,  cx - 80),
+                        (self._player, cx),
+                        (self._reno,   cx + 80),
+                        (self._darius, cx + 180),
+                    ])
+                
             elif self._sub_phase == "montage":
                 self._transition.fade_in(speed=150)
                 self._montage_step = 0
@@ -699,23 +788,37 @@ class Chapter3Scene(Scene):
             self._player.update(dt)
             self._elena.update(dt)
             if self._reno_joined or self._sub_phase in ("ruins", "ruins_warning", "ruins_encounter",
+                                                         "forest_post", "ruins_post",
                                                          "village", "village_warning", "village_encounter",
-                                                         "campfire"):
+                                                         "village_post", "campfire"):
                 self._reno.update(dt)
             if self._lyra_joined or self._sub_phase in ("ruins", "ruins_warning", "ruins_encounter",
-                                                          "village", "village_warning", "village_encounter",
-                                                          "campfire"):
+                                                          "ruins_post", "village", "village_warning",
+                                                          "village_encounter", "village_post", "campfire"):
                 self._lyra.update(dt)
             if self._darius_joined or self._sub_phase in ("village", "village_warning", "village_encounter",
-                                                            "campfire"):
+                                                            "village_post", "campfire"):
                 self._darius.update(dt)
+
+        # Setelah walkin selesai → aktifkan follow untuk semua yang sudah join
+        if not self._walkin_active and self._sub_phase != "campfire":
+            if not self._elena._follow_enabled:
+                self._elena.enable_follow()
+            if self._reno_joined and not self._reno._follow_enabled:
+                self._reno.enable_follow()
+            if self._lyra_joined and not self._lyra._follow_enabled:
+                self._lyra.enable_follow()
+            if self._darius_joined and not self._darius._follow_enabled:
+                self._darius.enable_follow()
 
         # Update enemies
         for enemy in self._enemies:
             enemy.update(dt)
 
         # Gerakan player saat fase encounter (agar bisa mendekati musuh)
-        if self._sub_phase.endswith("_encounter") and not self._enemy_walkin_active:
+        if self._walkin_active:
+            pass  # walkin yang kontrol animasi walk
+        elif self._sub_phase.endswith("_encounter") and not self._enemy_walkin_active:
             keys = pygame.key.get_pressed()
             dx = 0
             moving_left  = keys[pygame.K_LEFT]  or keys[pygame.K_a]
@@ -726,7 +829,7 @@ class Chapter3Scene(Scene):
                 dx = 160 * dt
             if dx != 0:
                 self._player._x = max(60, min(self._game.W - 60, self._player._x + dx))
-                self._elena._x  = self._player._x + 70
+                # Tidak perlu hardcode elena.x — follow system sudah handle
 
             # Animasi walk + flip
             if moving_left and not moving_right:
@@ -735,7 +838,7 @@ class Chapter3Scene(Scene):
                 self._player.set_walking(True, True)
             else:
                 self._player.set_walking(False)
-        else:
+        elif not self._walkin_active:
             self._player.set_walking(False)
 
         if self._slash_active:
@@ -787,7 +890,7 @@ class Chapter3Scene(Scene):
         sx = self._shake_x
 
         # Tentukan background berdasarkan sub_phase
-        phase_base = self._sub_phase.replace("_warning", "").replace("_encounter", "")
+        phase_base = self._sub_phase.replace("_warning", "").replace("_encounter", "").replace("_post", "")
         if phase_base in ("forest", "ruins", "village", "campfire"):
             bg_map = {
                 "forest":   self._game.assets.bg_forest,

@@ -477,6 +477,11 @@ class TrueEndScene(Scene):
         self._transition.fade_in(color=(255, 255, 255), speed=180)
         self._narrator.show(["TRUE ENDING", "Savior of the World"], 3.0)
         self._dialogue.show(REST_DLGS[0][1], REST_DLGS[0][0])
+        # Semua karakter idle dari awal
+        self._player.set_walking(False)
+        for ch in (self._elena, self._reno, self._lyra, self._darius):
+            ch.set_walking(False)
+            ch.disable_follow()
         try:
             self._game.assets.play("fanfare")
         except Exception:
@@ -602,6 +607,32 @@ class TrueEndScene(Scene):
         # Walk-in untuk return_trip
         self.update_walkin(dt)
 
+        # Animasi walk saat walkin aktif
+        if self._walkin_active:
+            self._player.set_walking(True, True)
+        elif self._phase == "return_trip":
+            # Aktifkan follow setelah walkin selesai
+            if not self._elena._follow_enabled:
+                self._elena.follow(self._player)
+                self._elena.follow_distance  = -90
+                self._elena.enable_follow()
+            if not self._reno._follow_enabled:
+                self._reno.follow(self._player)
+                self._reno.follow_distance   = -170
+                self._reno.enable_follow()
+            if not self._lyra._follow_enabled:
+                self._lyra.follow(self._player)
+                self._lyra.follow_distance   = -250
+                self._lyra.enable_follow()
+            if not self._darius._follow_enabled:
+                self._darius.follow(self._player)
+                self._darius.follow_distance = -330
+                self._darius.enable_follow()
+        else:
+            # Fase lain — matikan follow, karakter idle di posisinya
+            if not self._walkin_active:
+                self._player.set_walking(False)
+
         # Konfeti (aktif di town_wedding & final)
         if self._phase in ("town_wedding", "final"):
             for c in self._confetti:
@@ -644,6 +675,16 @@ class TrueEndScene(Scene):
             self._reno._x   = 80
             self._lyra._x   = W - 80
             self._darius._x = 40
+            # Facing: Arga kanan, Elena kiri, party menghadap tengah
+            self._player._facing_right = True
+            self._elena._facing_right  = False
+            self._reno._facing_right   = True
+            self._lyra._facing_right   = False
+            self._darius._facing_right = True
+            # Matikan follow semua di fase ini
+            for ch in (self._elena, self._reno, self._lyra, self._darius):
+                ch.disable_follow()
+            self._player.set_walking(False)
 
         elif self._phase == "return_trip":
             self._transition.fade_in(speed=200)
@@ -677,6 +718,13 @@ class TrueEndScene(Scene):
             self._reno._x     = W // 2 - 160
             self._lyra._x     = W // 2 + 160
             self._darius._x   = W // 2 - 250
+            # Semua menghadap raja (kanan)
+            for ch in (self._player, self._elena, self._reno, self._lyra, self._darius):
+                if hasattr(ch, "_facing_right"):
+                    ch._facing_right = True
+                if hasattr(ch, "disable_follow"):
+                    ch.disable_follow()
+            self._player.set_walking(False)
 
         elif self._phase == "town_wedding":
             self._transition.fade_in(color=(255, 255, 255), speed=200)
@@ -696,6 +744,15 @@ class TrueEndScene(Scene):
             self._reno._x   = W // 2 - 170
             self._lyra._x   = W // 2 + 170
             self._darius._x = W // 2 - 260
+            # Facing: Arga kanan, Elena kiri (hadap-hadapan), party ke tengah
+            self._player._facing_right = True
+            self._elena._facing_right  = False
+            self._reno._facing_right   = True
+            self._lyra._facing_right   = False
+            self._darius._facing_right = True
+            for ch in (self._elena, self._reno, self._lyra, self._darius):
+                ch.disable_follow()
+            self._player.set_walking(False)
 
         elif self._phase == "final":
             self._transition.fade_in(speed=100)

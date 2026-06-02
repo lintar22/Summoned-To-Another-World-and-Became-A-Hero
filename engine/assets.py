@@ -216,6 +216,21 @@ class AssetManager:
             os.path.join(idle_before_dir, "idle_front.png"), CS)
         self.arga_idle_before_side  = _load_img(
             os.path.join(idle_before_dir, "idle_side.png"),  CS)
+        # Idle animasi samping (loop) — before isekai
+        self.arga_idle_before_frames = _load_anim_frames(idle_before_dir, CS)
+        # Filter hanya idle_side_*.png
+        import re as _re
+        _side_files = sorted(
+            f for f in __import__("os").listdir(idle_before_dir)
+            if _re.match(r"idle_side_", f) and f.endswith(".png")
+        )
+        if _side_files:
+            self.arga_idle_before_frames = [
+                _load_img(__import__("os").path.join(idle_before_dir, f), CS)
+                for f in _side_files
+            ]
+        else:
+            self.arga_idle_before_frames = [self.arga_idle_before_side]
         # Walk frames — before (8 frame animasi)
         self.arga_walk_before_frames = _load_anim_frames(
             os.path.join(arga_dir, "walk_before"), CS)
@@ -227,6 +242,18 @@ class AssetManager:
             os.path.join(idle_after_dir, "idle_front.png"), CS)
         self.arga_idle_after_side  = _load_img(
             os.path.join(idle_after_dir, "idle_side.png"),  CS)
+        # Idle animasi samping (loop) — after isekai
+        _side_files_after = sorted(
+            f for f in __import__("os").listdir(idle_after_dir)
+            if __import__("re").match(r"idle_side_", f) and f.endswith(".png")
+        )
+        if _side_files_after:
+            self.arga_idle_after_frames = [
+                _load_img(__import__("os").path.join(idle_after_dir, f), CS)
+                for f in _side_files_after
+            ]
+        else:
+            self.arga_idle_after_frames = [self.arga_idle_after_side]
         # Walk frames — after (8 frame animasi)
         self.arga_walk_after_frames = _load_anim_frames(
             os.path.join(arga_dir, "walk_after"), CS)
@@ -288,6 +315,12 @@ class AssetManager:
             os.path.join(heroes_dir, "elena", "walk"),
             CS
         )
+        self.elena_idle_frames = _load_anim_frames(
+            os.path.join(heroes_dir, "elena", "idle"),
+            CS
+        )
+        if not self.elena_idle_frames:
+            self.elena_idle_frames = [self.char_elena_idle]
 
        # ── Lyra (Party)
 
@@ -310,6 +343,12 @@ class AssetManager:
             os.path.join(heroes_dir, "lyra", "walk"),
             CS
         )
+        self.lyra_idle_frames = _load_anim_frames(
+            os.path.join(heroes_dir, "lyra", "idle"),
+            CS
+        )
+        if not self.lyra_idle_frames:
+            self.lyra_idle_frames = [self.char_lyra_idle]
 
         # ── Darius (Party)
 
@@ -331,6 +370,16 @@ class AssetManager:
             os.path.join(heroes_dir, "darius", "walk"),
             CS
         )
+        self.darius_idle_frames = _load_anim_frames(
+            os.path.join(heroes_dir, "darius", "idle"),
+            CS
+        )
+        if not self.darius_idle_frames:
+            self.darius_idle_frames = [self.char_darius_idle]
+        # Darius hurt4 — 1 frame static untuk pose terluka sebelum battle desa
+        self.darius_hurt4 = _load_img(
+            os.path.join(heroes_dir, "darius", "hurt", "hurt_4.png"), CS
+        )
         
         # ── Reno (Party)
         for state in ("idle", "attack", "hurt"):
@@ -350,6 +399,30 @@ class AssetManager:
         self.reno_walk_frames = _load_anim_frames(
             os.path.join(heroes_dir, "reno", "walk"),
             CS
+        )
+        _reno_idle_dir = os.path.join(heroes_dir, "reno", "idle")
+        _reno_side = sorted(
+            f for f in os.listdir(_reno_idle_dir)
+            if f.startswith("idle_side_") and f.endswith(".png")
+        )
+        if _reno_side:
+            self.reno_idle_frames = [
+                _load_img(os.path.join(_reno_idle_dir, f), CS)
+                for f in _reno_side
+            ]
+        else:
+            self.reno_idle_frames = _load_anim_frames(_reno_idle_dir, CS)
+        if not self.reno_idle_frames:
+            self.reno_idle_frames = [self.char_reno_idle]
+        # Dead pose spesifik untuk bad ending
+        self.reno_dead5   = _load_img(os.path.join(heroes_dir, "reno",   "dead", "reno-dead5.png"), CS)
+        self.elena_dead5  = _load_img(os.path.join(heroes_dir, "elena",  "dead", "dead_5.png"),     CS)
+        self.lyra_dead6   = _load_img(os.path.join(heroes_dir, "lyra",   "dead", "dead_6.png"),     CS)
+        self.darius_dead7 = _load_img(os.path.join(heroes_dir, "darius", "dead", "dead_7.png"),     CS)
+        self.arga_hurt3   = _load_img(os.path.join(heroes_dir, "arga",   "hurt_after", "hurt_3.png"), CS)
+        # Reno hurt4 — 1 frame static untuk pose terluka sebelum battle hutan
+        self.reno_hurt4 = _load_img(
+            os.path.join(heroes_dir, "reno", "hurt", "reno-hurt4.png"), CS
         )
 
         # Silence alias references (no-op)

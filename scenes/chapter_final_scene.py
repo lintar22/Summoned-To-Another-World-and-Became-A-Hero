@@ -226,13 +226,23 @@ class ChapterFinalScene(Scene):
         self._transition.fade_in(speed=150)
         self._narrator.show(["Chapter Final", "Kastil Raja Iblis"], 3.0)
         self._dialogue.show(self.PRE_BATTLE_DLGS[0][1], self.PRE_BATTLE_DLGS[0][0])
-        # Walk-in semua party + king
+        # Setup follow target & jarak untuk semua party
+        # Formasi: Lyra-Elena-Arga-Reno-Darius
+        self._elena.follow(self._player);  self._elena.follow_distance  = -80
+        self._reno.follow(self._player);   self._reno.follow_distance   =  80
+        self._lyra.follow(self._player);   self._lyra.follow_distance   = -160
+        self._darius.follow(self._player); self._darius.follow_distance =  160
+        # Matikan follow dulu — walkin yang kontrol posisi
+        for ch in (self._elena, self._reno, self._lyra, self._darius):
+            ch.disable_follow()
+        # Walk-in semua party
+        # Walkin semua dari kiri seperti chapter 3, formasi menyesuaikan setelah itu
         self.start_walkin([
-            (self._player,   200),
-            (self._elena,    290),
-            (self._reno,     380),
-            (self._lyra,     470),
-            (self._darius,   560),
+            (self._player,  200),
+            (self._elena,   280),
+            (self._reno,    360),
+            (self._lyra,    440),
+            (self._darius,  520),
         ])
 
     def _go_to_phase(self, new_phase: str):
@@ -567,6 +577,8 @@ class ChapterFinalScene(Scene):
                 self._narrator.show(["Lorong Kastil Raja Iblis", "Menuju Singgasana Kegelapan..."], 2.5)
                 self._dialogue.show(self.DUNGEON_DLGS[0][1], self.DUNGEON_DLGS[0][0])
                 # Party jalan masuk dari kiri ke kanan
+                for ch in (self._elena, self._reno, self._lyra, self._darius):
+                    ch.disable_follow()
                 for ch, tx in [(self._player, 180), (self._elena, 270),
                                (self._reno, 360), (self._lyra, 450), (self._darius, 540)]:
                     ch._x = -80
@@ -583,6 +595,8 @@ class ChapterFinalScene(Scene):
                 self._dialogue.show(self.BOSS_INTRO[0][1], self.BOSS_INTRO[0][0])
                 self._game.assets.play("damage")
                 # Party masuk dari kiri, boss sudah di tengah-kanan
+                for ch in (self._elena, self._reno, self._lyra, self._darius):
+                    ch.disable_follow()
                 for ch, tx in [(self._player, 160), (self._elena, 240),
                                (self._reno, 320), (self._lyra, 400), (self._darius, 480)]:
                     ch._x = -80
@@ -602,6 +616,12 @@ class ChapterFinalScene(Scene):
         self._darius.update(dt)
         if self._phase not in ("pre_battle", "dungeon", "dungeon_warning", "dungeon_encounter"):
             self._boss.update(dt)
+
+        # Setelah walkin selesai → aktifkan follow semua party
+        if not self._walkin_active:
+            for ch in (self._elena, self._reno, self._lyra, self._darius):
+                if not ch._follow_enabled:
+                    ch.enable_follow()
 
         # Walk-in dungeon enemies dari kanan
         if getattr(self, '_dungeon_walkin_active', False):
@@ -634,7 +654,7 @@ class ChapterFinalScene(Scene):
                 dx = 160 * dt
             if dx != 0:
                 self._player._x = max(60, min(self._game.W - 60, self._player._x + dx))
-                self._elena._x  = self._player._x + 70
+                # Tidak perlu hardcode posisi party — follow system yang handle
 
             # Animasi walk + flip arah
             if moving_left and not moving_right:
@@ -643,7 +663,7 @@ class ChapterFinalScene(Scene):
                 self._player.set_walking(True, True)
             else:
                 self._player.set_walking(False)
-        else:
+        elif not self._walkin_active:
             self._player.set_walking(False)
 
         # boss_intro → setelah semua dialog, boss interactable

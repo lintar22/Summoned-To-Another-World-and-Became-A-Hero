@@ -97,6 +97,8 @@ class Chapter2Scene(Scene):
         self._slimes_walkin_active = False
         self._slimes_walkin_done   = False
         self._slimes_interactable  = False   # True setelah walk-in selesai
+        self._town_empty           = False   # True setelah warga menghilang
+        self._pending_spawn        = False   # tunggu fade selesai baru spawn slime
 
         self._encounter_enemies = [
             {"name": "Slime", "hp": 80, "atk": 10, "def": 3, "exp": 20, "gold": 5},
@@ -128,6 +130,10 @@ class Chapter2Scene(Scene):
             self._dlg_step = 0
             self._dialogue.show(self.POST_BATTLE_DLGS[0][1], self.POST_BATTLE_DLGS[0][0])
             self._game.flags["battle_won_chapter2"] = False
+            # Elena sudah ikut, langsung aktifkan follow
+            self._elena.follow(self._player)
+            self._elena.follow_distance = -80
+            self._elena.enable_follow()
             return
 
         self._narrator.show([
@@ -135,8 +141,10 @@ class Chapter2Scene(Scene):
             "← → Berjalan  |  E Bicara dengan NPC  |  E Dekati musuh → Battle"
         ], 4.0)
         # Walk-in Arga dan Elena dari kiri
-        self._player._x = -80
-        self._elena._x = -140
+        # Posisi awal diatur oleh start_walkin
+        self._elena.follow(self._player)
+        self._elena.follow_distance = -80
+        self._elena.disable_follow()   # follow OFF dulu saat walkin berlangsung
         self.start_walkin([
             (self._player, 200),
             (self._elena, 270),
@@ -220,9 +228,11 @@ class Chapter2Scene(Scene):
             spk, txt = self.ALL_NPC_DONE_DLGS[self._npc_done_dlg_step]
             self._dialogue.show(txt, spk)
         else:
-            # Dialog selesai → spawn slime, walk-in dari kanan
+            # Dialog selesai → fade out, lalu warga hilang, lalu spawn slime
             self._dialogue.hide()
-            self._spawn_slimes_walkin()
+            self._pending_spawn = True
+            self._phase = "pre_spawn_fade"
+            self._transition.fade_out(speed=220)
 
     def _spawn_slimes_walkin(self):
         """Spawn 3 slime di luar layar kanan, lalu berjalan masuk."""
@@ -295,12 +305,16 @@ class Chapter2Scene(Scene):
     def update(self, dt: float) -> None:
         self._t += dt
         self.update_walkin(dt)
+
+        # Setelah walkin selesai → aktifkan follow elena
+        if not self._walkin_active and not self._elena._follow_enabled:
+            self._elena.enable_follow()
+
         self._transition.update(dt)
         self._dialogue.update(dt)
         self._narrator.update(dt)
         self._player.update(dt)
         self._elena.update(dt)
-        self._elena.follow(self._player)
         for npc in self._npcs:
             npc.update(dt)
 
@@ -320,7 +334,7 @@ class Chapter2Scene(Scene):
                 if moving_right:
                     dx = self._player_speed * dt
                 self._player.x = max(60, min(self._world_w - 60, self._player.x + dx))
-                self._elena.x = self._player.x + 70
+                # Elena mengikuti lewat sistem follow (tidak di-hardcode di sini)
 
                 # Animasi walk / idle + flip arah
                 if moving_left and not moving_right:
@@ -357,6 +371,14 @@ class Chapter2Scene(Scene):
         for slime in self._slimes:
             slime.update(dt)
 
+        # Fade selesai → warga hilang, fade in, spawn slime
+        if self._phase == "pre_spawn_fade" and self._transition.done:
+            self._town_empty = True        # sembunyikan NPC warga
+            self._pending_spawn = False
+            self._phase = "enemy_walkin"
+            self._transition.fade_in(speed=200)
+            self._spawn_slimes_walkin()
+
         if self._phase == "goto_ch3" and self._transition.done:
             from scenes.chapter3_scene import Chapter3Scene
             self._game.replace_scene(Chapter3Scene(self._game))
@@ -369,14 +391,15 @@ class Chapter2Scene(Scene):
         if bx > 0:
             surface.blit(bg, (bx - self._game.W, 0))
 
-        # NPC (project ke screen space)
-        for npc in self._npcs:
-            screen_x = npc.x - self._cam_x
-            if -60 < screen_x < self._game.W + 60:
-                old = npc.x
-                npc.x = screen_x
-                npc.draw(surface)
-                npc.x = old
+        # NPC warga (disembunyikan setelah transisi pre-spawn)
+        if not self._town_empty:
+            for npc in self._npcs:
+                screen_x = npc.x - self._cam_x
+                if -60 < screen_x < self._game.W + 60:
+                    old = npc.x
+                    npc.x = screen_x
+                    npc.draw(surface)
+                    npc.x = old
 
         self._player.draw(surface)
         self._elena.draw(surface)
@@ -399,11 +422,12 @@ class Chapter2Scene(Scene):
             ft.draw(surface)
 
         # Tanda seru pada NPC yang belum diajak bicara
-        for i, npc in enumerate(self._npcs):
-            if i not in self._npc_talked and self._phase == "explore":
-                screen_x = npc.x - self._cam_x
-                if 0 < screen_x < self._game.W:
-                    self._draw_exclamation(surface, int(screen_x), int(npc.y) - 70)
+        if not self._town_empty:
+            for i, npc in enumerate(self._npcs):
+                if i not in self._npc_talked and self._phase == "explore":
+                    screen_x = npc.x - self._cam_x
+                    if 0 < screen_x < self._game.W:
+                        self._draw_exclamation(surface, int(screen_x), int(npc.y) - 70)
 
         # Party HUD kiri atas
         self._draw_party_hud(surface)
