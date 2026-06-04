@@ -1,7 +1,3 @@
-<div align="center">
-
-<img src="https://readme-typing-svg.demolab.com?font=Cinzel&size=14&duration=3000&pause=1000&color=C9A84C&center=true&vCenter=true&width=600&lines=⸻+Visual+Novel+%C2%B7+RPG+Turn-Based+⸻;Setiap+pilihanmu+menentukan+takdir+dunia." alt="Typing SVG" />
-
 # ⚔️ Summoned To Another World and Became A Hero ⚔️
 
 *"Tunggu, pahlawan? Maksudnya aku?"*
