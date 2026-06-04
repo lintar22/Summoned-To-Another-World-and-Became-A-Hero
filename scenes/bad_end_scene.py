@@ -193,30 +193,58 @@ class BadEndScene(Scene):
         self._blood_drops: list[dict] = []  # cipratan gelap di fase gloat
         self._build_particles()
 
-        # Karakter
+        # Karakter — posisi SAMA PERSIS dengan BossBattleScene
         from entities.characters import Player, PartyNPC, BossNPC
         W, H = game.W, game.H
-        self._ground_y = int(H * 0.68)
+        self._ground_y = int(H * 0.82)
         gy = self._ground_y
 
-        # Boss (Raja Iblis) — masih berdiri, posisi kanan-tengah
-        self._boss = BossNPC(int(W * 0.68), gy - 100)
+        # Konstanta layout identik BossBattleScene
+        self._CHAR_SCALE         = 1.6
+        self._BOSS_SPRITE_SCALE  = 2.2
+        # depth scales: elena=slot0, reno=slot1, lyra=slot2, darius=slot3
+        self._PARTY_DEPTH_SCALES = [0.82 * 1.6, 1.0 * 1.6, 0.82 * 1.6, 1.0 * 1.6]
+        _PARTY_FORMATION = [
+            (-90,  -20),   # slot 0 — Elena
+            ( 60,  -15),   # slot 1 — Reno
+            (-160, -10),   # slot 2 — Lyra
+            ( 120,   15),  # slot 3 — Darius
+        ]
+        arga_x = int(W * 0.20)
+        boss_x = int(W * 0.72)
+        self._arga_x = arga_x
+        self._boss_x = boss_x
 
-        # Party — semua KO / hurt, berserakan di sebelah kiri
-        self._player = Player(int(W * 0.28), gy - 55)
+        # Boss (Raja Iblis) — posisi sama dengan boss_battle_scene
+        self._boss = BossNPC(boss_x, gy)
+
+        # Arga
+        self._player = Player(arga_x, gy)
         self._player.before_isekai = False
         self._player._anim_state = "hurt"
-        self._player._frame_idx  = 2   # frame ke-3 (index 2) = hurt_3.png
+        self._player._frame_idx  = 2
         self._player._anim_once  = True
-        self._player._anim_done  = True   # freeze, tidak advance
-        
-        self._elena  = PartyNPC("Elena",  int(W * 0.18), gy - 55)
-        self._reno   = PartyNPC("Reno",   int(W * 0.12), gy - 55)
-        self._lyra   = PartyNPC("Lyra",   int(W * 0.38), gy - 55)
-        self._darius = PartyNPC("Darius", int(W * 0.06), gy - 55)
+        self._player._anim_done  = True
 
+        # Party — posisi dari formation offset terhadap arga_x
+        self._elena  = PartyNPC("Elena",  arga_x + _PARTY_FORMATION[0][0], gy + _PARTY_FORMATION[0][1])
+        self._reno   = PartyNPC("Reno",   arga_x + _PARTY_FORMATION[1][0], gy + _PARTY_FORMATION[1][1])
+        self._lyra   = PartyNPC("Lyra",   arga_x + _PARTY_FORMATION[2][0], gy + _PARTY_FORMATION[2][1])
+        self._darius = PartyNPC("Darius", arga_x + _PARTY_FORMATION[3][0], gy + _PARTY_FORMATION[3][1])
+
+        # Daftar party dengan depth scale untuk draw
+        self._party_list = [
+            (self._elena,  self._PARTY_DEPTH_SCALES[0]),
+            (self._reno,   self._PARTY_DEPTH_SCALES[1]),
+            (self._lyra,   self._PARTY_DEPTH_SCALES[2]),
+            (self._darius, self._PARTY_DEPTH_SCALES[3]),
+        ]
+
+        # Set KO state semua party non-Arga
         for ch in (self._elena, self._reno, self._lyra, self._darius):
-            ch.take_damage(99999)
+            ch._knocked_out = True
+
+        # HP party sudah di-set oleh BattleScene sebelum masuk BadEndScene
 
         # Shake dramatis
         self._shake_timer = 0.0
@@ -229,6 +257,17 @@ class BadEndScene(Scene):
         # Ruin visual
         self._ruin_debris = self._gen_ruin_debris(W, H)
         self._crack_lines = self._gen_crack_lines(W, H)
+
+        # Slideshow BG untuk ruin_narration
+        # Urutan: kota_hancur → dalam_belairung_hancur
+        self._ruin_slides = ["bg_kota_hancur", "bg_dalam_belairung_hancur"]
+        self._ruin_slide_idx   = 0       # indeks slide aktif
+        self._ruin_slide_timer = 0.0     # timer per slide
+        self._ruin_slide_fade  = 0       # alpha overlay transisi (0=penuh tampil, 255=hitam)
+        self._ruin_slide_state = "show"  # "show" | "fadeout" | "fadein"
+        # Durasi tiap slide dalam detik sebelum pindah ke slide berikutnya
+        _RUIN_SLIDE_DURATIONS = [22.0, 999.0]  # slide terakhir tahan sampai narasi habis
+        self._ruin_slide_durations = _RUIN_SLIDE_DURATIONS
 
         # BGM state
         self._bgm_current = ""
@@ -307,7 +346,7 @@ class BadEndScene(Scene):
 
     def _gen_ruin_debris(self, W: int, H: int) -> list:
         debris = []
-        gy = int(H * 0.68)
+        gy = int(H * 0.82)
         for _ in range(15):
             x = random.randint(15, W - 15)
             y = random.randint(gy - 70, gy + 25)
@@ -489,6 +528,7 @@ class BadEndScene(Scene):
         # Narasi ruin
         if self._phase == "ruin_narration":
             self._update_ruin_narration(dt)
+            self._update_ruin_slideshow(dt)
 
         # Final fade in
         if self._phase == "final":
@@ -535,13 +575,14 @@ class BadEndScene(Scene):
             self._transition.fade_in(speed=150)
             self._narrator.show(["Di Dalam Kegelapan yang Tersisa..."], 2.0)
             self._dialogue.show(REGRET_DLGS[0][1], REGRET_DLGS[0][0])
-            # Posisi: party berserakan, boss sudah tidak ada
+            # Posisi phase regret: semua karakter di tengah layar
             W = self._game.W
-            self._player._x = W // 2
-            self._elena._x  = W // 2 + 90
-            self._reno._x   = W // 2 - 130
-            self._lyra._x   = W // 2 + 170
-            self._darius._x = W // 2 - 210
+            cx = W // 2
+            self._player._x  = cx
+            self._elena._x   = cx - 100
+            self._reno._x    = cx + 110
+            self._lyra._x    = cx - 190
+            self._darius._x  = cx + 200
 
         elif self._phase == "ruin_narration":
             self._transition.fade_in(color=(0, 0, 0), speed=100)
@@ -549,6 +590,11 @@ class BadEndScene(Scene):
             self._narr_timer = 0.0
             self._narr_alpha = 0
             self._narr_phase = "fade_in"
+            # Reset slideshow BG
+            self._ruin_slide_idx   = 0
+            self._ruin_slide_timer = 0.0
+            self._ruin_slide_fade  = 0
+            self._ruin_slide_state = "show"
             # Ganti BGM ke suasana ruin yang lebih ambient
             self._stop_bgm(fadeout_ms=2000)
             self._play_bgm(BGM_RUIN, BGM_RUIN_VOLUME)
@@ -564,7 +610,7 @@ class BadEndScene(Scene):
 
         # ── DEMON GLOAT ──────────────────────────────────────────────────────
         if self._phase == "demon_gloat":
-            surface.blit(self._game.assets.bg_castle_int, (sx, 0))
+            surface.blit(self._game.assets.bg_ruang_boss_rusak, (sx, 0))
             # Overlay merah gelap menyelimuti singgasana
             dark = pygame.Surface((W, H), pygame.SRCALPHA)
             dark.fill((40, 0, 0, 90))
@@ -573,38 +619,35 @@ class BadEndScene(Scene):
             self._draw_blood_drops(surface)
             # Retakan dinding
             self._draw_crack_lines(surface)
-            # Boss masih berdiri — angkuh
-            self._boss.draw(surface)
-            # Party KO di kiri
-            for ch in (self._darius, self._reno, self._lyra, self._elena):
-                ch.draw(surface)
-            self._player.draw(surface)
+            # Party KO di kiri (depth order: belakang dulu)
+            for ch, ds in reversed(self._party_list):
+                self.draw_char_scaled(surface, ch, ds)
+            self.draw_char_scaled(surface, self._player, self._CHAR_SCALE)
+            # Boss masih berdiri — angkuh (scale 2.2)
+            self.draw_char_scaled(surface, self._boss, self._BOSS_SPRITE_SCALE)
             self._draw_ko_labels(surface)
             # Abu melayang
             self._draw_ashes(surface)
 
         # ── REGRET ───────────────────────────────────────────────────────────
         elif self._phase == "regret":
-            surface.blit(self._game.assets.bg_castle_int, (sx, 0))
+            surface.blit(self._game.assets.bg_ruang_boss_rusak, (sx, 0))
             # Overlay hitam pekat — tidak ada cahaya harapan
             dark = pygame.Surface((W, H), pygame.SRCALPHA)
             dark.fill((0, 0, 0, 140))
             surface.blit(dark, (0, 0))
             self._draw_crack_lines(surface)
-            for ch in (self._darius, self._lyra, self._reno, self._elena):
-                ch.draw(surface)
-            self._player.draw(surface)
+            for ch, ds in reversed(self._party_list):
+                self.draw_char_scaled(surface, ch, ds)
+            self.draw_char_scaled(surface, self._player, self._CHAR_SCALE)
             self._draw_ashes(surface)
             # Efek mata merah redup di atas Arga — menggambarkan rasa bersalah
             self._draw_guilt_aura(surface)
 
         # ── RUIN NARRATION ───────────────────────────────────────────────────
         elif self._phase == "ruin_narration":
-            self._draw_ruin_background(surface)
-            self._draw_ruin_debris_visual(surface)
-            self._draw_fire_backdrop(surface)
-            self._draw_ashes(surface)
-            self._draw_embers(surface)
+            # Slideshow BG menggantikan semua partikel & debris
+            self._draw_ruin_slideshow(surface)
             # Vignette gelap di tepi layar
             self._draw_vignette(surface)
             # Narasi
@@ -655,8 +698,9 @@ class BadEndScene(Scene):
             f = pygame.font.SysFont("Georgia", 13, bold=True)
             for ch, name in chars:
                 t = f.render("✕  KO", True, (200, 40, 40))
+                # Karakter discale 1.6x dari ~96px = ~153px tinggi, label di atasnya
                 surface.blit(t, (int(ch._x) - t.get_width() // 2,
-                                 int(ch._y) - 74))
+                                 int(ch._y) - 160))
         except Exception:
             pass
 
@@ -781,6 +825,66 @@ class BadEndScene(Scene):
             x2 = x1 + random.randint(-80, 80)
             y2 = y1 + random.randint(5, 30)
             pygame.draw.line(surface, crack_col, (x1, y1), (x2, y2), 2)
+
+    def _update_ruin_slideshow(self, dt: float):
+        """Update slide-timer dan transisi antar BG slide di ruin_narration."""
+        if self._ruin_slide_idx >= len(self._ruin_slides):
+            return
+
+        if self._ruin_slide_state == "show":
+            self._ruin_slide_timer += dt
+            max_dur = (self._ruin_slide_durations[self._ruin_slide_idx]
+                       if self._ruin_slide_idx < len(self._ruin_slide_durations)
+                       else 999.0)
+            if self._ruin_slide_timer >= max_dur:
+                if self._ruin_slide_idx + 1 < len(self._ruin_slides):
+                    self._ruin_slide_state = "fadeout"
+                    self._ruin_slide_timer = 0.0
+
+        elif self._ruin_slide_state == "fadeout":
+            self._ruin_slide_timer += dt
+            self._ruin_slide_fade = min(255, int(255 * self._ruin_slide_timer / 1.2))
+            if self._ruin_slide_timer >= 1.2:
+                self._ruin_slide_idx  += 1
+                self._ruin_slide_timer = 0.0
+                self._ruin_slide_state = "fadein"
+                self._ruin_slide_fade  = 255
+
+        elif self._ruin_slide_state == "fadein":
+            self._ruin_slide_timer += dt
+            self._ruin_slide_fade = max(0, 255 - int(255 * self._ruin_slide_timer / 1.2))
+            if self._ruin_slide_timer >= 1.2:
+                self._ruin_slide_state = "show"
+                self._ruin_slide_timer = 0.0
+                self._ruin_slide_fade  = 0
+
+    def _draw_ruin_slideshow(self, surface: pygame.Surface):
+        """Tampilkan BG slide aktif + overlay transisi hitam."""
+        W, H = self._game.W, self._game.H
+
+        # Gambar slide BG aktif
+        idx = min(self._ruin_slide_idx, len(self._ruin_slides) - 1)
+        attr = self._ruin_slides[idx]
+        bg = getattr(self._game.assets, attr, None)
+        if bg:
+            surface.blit(bg, (0, 0))
+        else:
+            # Fallback gradien merah gelap
+            for y in range(H):
+                t = y / H
+                r = int(5 + 50 * t)
+                pygame.draw.line(surface, (r, 0, 0), (0, y), (W, y))
+
+        # Overlay gelap tetap — beri suasana lebih suram
+        dark = pygame.Surface((W, H), pygame.SRCALPHA)
+        dark.fill((0, 0, 0, 80))
+        surface.blit(dark, (0, 0))
+
+        # Overlay transisi antar slide
+        if self._ruin_slide_fade > 0:
+            ov = pygame.Surface((W, H), pygame.SRCALPHA)
+            ov.fill((0, 0, 0, self._ruin_slide_fade))
+            surface.blit(ov, (0, 0))
 
     def _draw_vignette(self, surface: pygame.Surface):
         """Vignette hitam pekat di tepi layar — menekan dan mencekam."""

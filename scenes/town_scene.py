@@ -18,7 +18,7 @@ import random
 from engine.base import Scene
 from engine.colors import *
 from ui.components import DialogueBox, TransitionScreen, NarratorBox, FloatingText, PartyHUD
-from entities.characters import Player, PartyNPC, TownNPC, MonsterNPC
+from entities.characters import Player, PartyNPC, KingdomNPC, MonsterNPC
 
 
 class Chapter2Scene(Scene):
@@ -44,7 +44,7 @@ class Chapter2Scene(Scene):
 
     # Dialog setelah battle selesai (menang) — dipanggil oleh BattleScene saat kembali
     POST_BATTLE_DLGS = [
-        ("Elena", "Cepat sekali. Bahkan aku sampai kesushan untuk membantumu."),
+        ("Elena", "Cepat sekali. Bahkan aku sampai kesusahan untuk membantumu."),
         ("Arga",  "Aku sendiri kaget... seolah tubuh ini bergerak sendiri."),
         ("Elena", "Mungkin itu merupakan kekuatan pedang itu. Ia menyesuaikan diri dengan pemiliknya."),
         ("Arga",  "Terasa aneh. Tapi... aku tidak benci."),
@@ -67,7 +67,7 @@ class Chapter2Scene(Scene):
         self._floats: list[FloatingText] = []
         self._party_hud = PartyHUD()
 
-        ground_y = int(game.H * 0.6)
+        ground_y = int(game.H * 0.82)
         self._ground_y = ground_y
         self._player = Player(200, ground_y - 55)
         self._player.before_isekai = False   # sudah dapat Holy Sword
@@ -76,7 +76,7 @@ class Chapter2Scene(Scene):
         self._player_speed = 150.0
 
         # NPC kota — semua harus diajak bicara sebelum musuh muncul
-        self._npcs: list[TownNPC] = []
+        self._npcs: list[KingdomNPC] = []
         self._npc_talked: set[int] = set()   # indeks NPC yang sudah diajak bicara
         # (name, target_x_world, dlg, emotion, color)
         for name, nx, dlg, em, col in [
@@ -86,7 +86,7 @@ class Chapter2Scene(Scene):
             ("Warga Kota 2", 1020, "Aura yang kau bawa itu... mengingatkanku pada pahlawan dalam legenda. Semoga cerita ini berakhir berbeda.", "normal",(140, 160, 180)),
         ]:
             # Spawn di luar kanan layar, walk-in ke target_x (world space)
-            npc = TownNPC(name, nx, ground_y - 55, col)
+            npc = KingdomNPC(name, nx, ground_y - 55, col)
             npc.set_dialogues([dlg])
             npc.emotion = em
             npc._highlight = True
@@ -110,6 +110,16 @@ class Chapter2Scene(Scene):
         self._npc_done_dlg_step = 0
         self._active_npc_idx = -1   # NPC yang sedang diajak bicara
 
+        # ── Animasi hardcode idle NPC kota (seperti King, Mage, Knight di ch1) ──
+        # Urutan _npcs: 0=Anak Kecil, 1=Pria Tua, 2=Warga Kota, 3=Warga Kota 2
+        # Sprite mapping: citizen_child, oldman, citizen_man, soldier
+        self._npc_anim_timer  = 0.0
+        self._npc_anim_speed  = 0.18   # detik per frame
+        self._npc_child_frame   = 0   # Anak Kecil  → citizen_child_idle_frames
+        self._npc_oldman_frame  = 0   # Pria Tua    → oldman_idle_frames
+        self._npc_woman_frame   = 0   # Warga Kota  → citizen_man_idle_frames
+        self._npc_soldier_frame = 0   # Warga Kota 2 → soldier_idle_frames
+
         self._cam_x = 0.0
         self._world_w = 1200
 
@@ -128,6 +138,7 @@ class Chapter2Scene(Scene):
         if self._returned_from_battle:
             self._phase = "post_battle"
             self._dlg_step = 0
+            self._town_empty = True          # warga sudah hilang sebelum battle
             self._dialogue.show(self.POST_BATTLE_DLGS[0][1], self.POST_BATTLE_DLGS[0][0])
             self._game.flags["battle_won_chapter2"] = False
             # Elena sudah ikut, langsung aktifkan follow
@@ -235,10 +246,11 @@ class Chapter2Scene(Scene):
             self._transition.fade_out(speed=220)
 
     def _spawn_slimes_walkin(self):
-        """Spawn 3 slime di luar layar kanan, lalu berjalan masuk."""
+        """Spawn 3 slime di luar layar kanan, berjalan masuk ke kiri menghadap Arga."""
         ground_y = self._ground_y
         screen_w = self._game.W
-        # Target posisi slime di world space (sesuai kamera saat ini)
+        # Target posisi slime: bergerombol di sisi kanan layar (dekat player)
+        # Player umumnya di sekitar x=200-400, slime datang dari kanan
         targets = [
             self._cam_x + screen_w - 140,
             self._cam_x + screen_w - 220,
@@ -253,7 +265,7 @@ class Chapter2Scene(Scene):
         self._slimes_walkin_active = True
         self._slimes_interactable  = False
         self._phase = "enemy_walkin"
-        self._narrator.show(["⚠ Slime muncul!", "Dekati dan tekan E untuk bertarung!"], 2.5)
+        self._narrator.show(["Slime muncul!", "Dekati dan tekan E untuk bertarung!"], 2.5)
         self._game.assets.play("damage")
 
     def _try_start_battle(self):
@@ -318,6 +330,20 @@ class Chapter2Scene(Scene):
         for npc in self._npcs:
             npc.update(dt)
 
+        # ── Animasi idle hardcode NPC kota (loop seperti King/Mage/Knight di ch1) ──
+        self._npc_anim_timer += dt
+        if self._npc_anim_timer >= self._npc_anim_speed:
+            self._npc_anim_timer = 0.0
+            assets = self._game.assets
+            child_f   = getattr(assets, "citizen_child_idle_frames", [])
+            oldman_f  = getattr(assets, "oldman_idle_frames",        [])
+            woman_f   = getattr(assets, "citizen_man_idle_frames",   [])
+            soldier_f = getattr(assets, "soldier_idle_frames",       [])
+            if child_f:   self._npc_child_frame   = (self._npc_child_frame   + 1) % len(child_f)
+            if oldman_f:  self._npc_oldman_frame  = (self._npc_oldman_frame  + 1) % len(oldman_f)
+            if woman_f:   self._npc_woman_frame   = (self._npc_woman_frame   + 1) % len(woman_f)
+            if soldier_f: self._npc_soldier_frame = (self._npc_soldier_frame + 1) % len(soldier_f)
+
         for ft in self._floats:
             ft.update(dt)
         self._floats = [f for f in self._floats if f.alive]
@@ -358,9 +384,13 @@ class Chapter2Scene(Scene):
                 tx = getattr(slime, '_target_x', slime.x)
                 if slime.x > tx + 2:
                     slime.x = max(tx, slime.x - 200 * dt)
+                    if hasattr(slime, 'set_walking'):
+                        slime.set_walking(True, True)   # animasi jalan (arah tidak diflip)
                     all_arrived = False
                 else:
                     slime.x = tx
+                    if hasattr(slime, 'set_walking'):
+                        slime.set_walking(False)
             if all_arrived and not self._slimes_walkin_done:
                 self._slimes_walkin_done  = True
                 self._slimes_walkin_active = False
@@ -393,16 +423,34 @@ class Chapter2Scene(Scene):
 
         # NPC warga (disembunyikan setelah transisi pre-spawn)
         if not self._town_empty:
-            for npc in self._npcs:
+            # Mapping indeks NPC → (frames_attr, frame_counter)
+            _npc_anim_map = [
+                ("citizen_child_idle_frames", self._npc_child_frame),    # 0: Anak Kecil
+                ("oldman_idle_frames",        self._npc_oldman_frame),   # 1: Pria Tua
+                ("citizen_man_idle_frames",   self._npc_woman_frame),    # 2: Warga Kota
+                ("soldier_idle_frames",       self._npc_soldier_frame),  # 3: Warga Kota 2
+            ]
+            for i, npc in enumerate(self._npcs):
                 screen_x = npc.x - self._cam_x
                 if -60 < screen_x < self._game.W + 60:
-                    old = npc.x
-                    npc.x = screen_x
-                    npc.draw(surface)
-                    npc.x = old
+                    # Coba gambar dengan sprite animasi hardcode dulu
+                    drawn_anim = False
+                    if i < len(_npc_anim_map):
+                        frames_attr, frame_idx = _npc_anim_map[i]
+                        frames = getattr(self._game.assets, frames_attr, [])
+                        if frames:
+                            self._draw_npc_frame(surface, frames_attr, frame_idx,
+                                                 int(screen_x), int(npc.y))
+                            drawn_anim = True
+                    # Fallback ke KingdomNPC.draw() jika sprite tidak tersedia
+                    if not drawn_anim:
+                        old = npc.x
+                        npc.x = screen_x
+                        npc.draw(surface)
+                        npc.x = old
 
-        self._player.draw(surface)
-        self._elena.draw(surface)
+        self.draw_char_scaled(surface, self._player, 1.6)
+        self.draw_char_scaled(surface, self._elena,  1.6)
 
         # Slime enemies (project ke screen space)
         for slime in self._slimes:
@@ -410,7 +458,7 @@ class Chapter2Scene(Scene):
             if -60 < screen_x < self._game.W + 60:
                 old = slime.x
                 slime.x = screen_x
-                slime.draw(surface)
+                self.draw_char_scaled(surface, slime, 1.7)
                 # Indikator interaksi jika cukup dekat
                 if self._slimes_interactable:
                     px = self._player.x
@@ -439,7 +487,7 @@ class Chapter2Scene(Scene):
         try:
             if self._phase == "explore":
                 left = len(self._npcs) - len(self._npc_talked)
-                hint = f"← → Jalan  |  E Bicara  |  NPC tersisa: {left}/{len(self._npcs)}"
+                hint = f"← → Jalan  |  E Bicara  |: {left}/{len(self._npcs)}"
                 ctrl = self._font_ui.render(hint, True, UI_DIMTEXT)
             elif self._phase == "encounter":
                 ctrl = self._font_ui.render(
@@ -450,6 +498,26 @@ class Chapter2Scene(Scene):
                 surface.blit(ctrl, (self._game.W // 2 - ctrl.get_width() // 2, 8))
         except Exception:
             pass
+
+    def _draw_npc_frame(self, surface, frames_attr, frame_idx, x, y,
+                        scale=1.6, facing_right=True):
+        """Gambar NPC dari frame list di assets, normalisasi tinggi ke 96px (sama seperti ch1)."""
+        SPRITE_BASE_H = 96
+        frames = getattr(self._game.assets, frames_attr, [])
+        if not frames:
+            return
+        img = frames[frame_idx % len(frames)]
+        orig_w, orig_h = img.get_size()
+        if orig_h <= 0:
+            return
+        norm_w = int(orig_w * SPRITE_BASE_H / orig_h)
+        normalized = pygame.transform.scale(img, (norm_w, SPRITE_BASE_H))
+        new_w = int(norm_w * scale)
+        new_h = int(SPRITE_BASE_H * scale)
+        scaled = pygame.transform.scale(normalized, (new_w, new_h))
+        if not facing_right:
+            scaled = pygame.transform.flip(scaled, True, False)
+        surface.blit(scaled, (x - new_w // 2, y - new_h))
 
     def _draw_interact_hint(self, surface, cx, cy):
         """Tanda [E] di atas musuh jika bisa diinteraksi."""

@@ -160,23 +160,23 @@ class AssetManager:
     def _load_backgrounds(self):
         W, H = self.W, self.H
 
-        def _bg(filename: str, subfolder: str = "", fallback=(20, 18, 40)) -> pygame.Surface:
-            # 1. Coba langsung di backgrounds/
-            p = _p("backgrounds", filename)
-            if os.path.isfile(p):
-                return _load_img(p, (W, H), alpha=False)
-            # 2. Coba di subfolder
-            if subfolder:
-                p2 = _p("backgrounds", subfolder, filename)
-                if os.path.isfile(p2):
-                    return _load_img(p2, (W, H), alpha=False)
-                # 3. File pertama di subfolder
-                subdir = _p("backgrounds", subfolder)
-                if os.path.isdir(subdir):
-                    for f in sorted(os.listdir(subdir)):
-                        if f.lower().endswith((".png", ".jpg", ".jpeg")):
-                            return _load_img(os.path.join(subdir, f), (W, H), alpha=False)
-            # 4. Gradient fallback
+        # Daftar semua subfolder backgrounds yang akan di-scan secara rekursif
+        _BG_SEARCH_DIRS = [
+            _p("backgrounds"),
+            _p("backgrounds", "opening"),
+            _p("backgrounds", "chapter_1"),
+            _p("backgrounds", "chapter_2"),
+            _p("backgrounds", "battle"),
+            _p("backgrounds", "endings"),
+        ]
+
+        def _bg(filename: str, fallback=(20, 18, 40)) -> pygame.Surface:
+            """Cari file BG di semua subfolder backgrounds, tanpa perlu tahu folder-nya."""
+            for search_dir in _BG_SEARCH_DIRS:
+                p = os.path.join(search_dir, filename)
+                if os.path.isfile(p):
+                    return _load_img(p, (W, H), alpha=False)
+            # Gradient fallback jika file tidak ditemukan
             surf = pygame.Surface((W, H))
             for y in range(H):
                 t = y / H
@@ -184,16 +184,32 @@ class AssetManager:
                 pygame.draw.line(surf, col, (0, y), (W, y))
             return surf
 
-        self.bg_night_city  = _bg("bg_night_city.png",  "opening",   (10, 12, 30))
-        self.bg_throne_room = _bg("bg_throne_room.png", "chapter_1", (30, 20, 50))
-        self.bg_town        = _bg("bg_town.png",        "chapter_1", (40, 50, 80))
-        self.bg_forest      = _bg("bg_forest.png",      "chapter_2", (15, 35, 15))
-        self.bg_ruins       = _bg("bg_ruins.png",       "chapter_2", (50, 40, 30))
-        self.bg_village     = _bg("bg_village.png",     "chapter_2", (60, 30, 20))
-        self.bg_battle      = _bg("bg_battle.png",      "battle",    (30, 10, 50))
-        self.bg_castle_ext  = _bg("bg_castle_ext.png",  "chapter_2", (20, 15, 30))
-        self.bg_castle_int  = _bg("bg_castle_int.png",  "battle",    (15, 5, 25))
-        self.bg_ending      = _bg("bg_ending.png",      "endings",   (50, 40, 80))
+        # ── Opening ──────────────────────────────────────────────────────────
+        self.bg_night_city  = _bg("bg_night_city.png",  (10, 12, 30))
+        self.bg_prolog      = _bg("prolog.png",         (10, 12, 30))
+
+        # ── Chapter 1 ────────────────────────────────────────────────────────
+        self.bg_throne_room = _bg("bg_throne_room.png", (30, 20, 50))
+        self.bg_belairung   = _bg("belairung_kerajan.png", (30, 20, 50))
+        self.bg_town        = _bg("bg_town.png",        (40, 50, 80))
+
+        # ── Chapter 2 ────────────────────────────────────────────────────────
+        self.bg_forest      = _bg("bg_forest.png",      (15, 35, 15))
+        self.bg_ruins       = _bg("bg_ruins.png",       (50, 40, 30))
+        self.bg_village     = _bg("bg_village.png",     (60, 30, 20))
+        self.bg_castle_ext  = _bg("bg_castle_ext.png",  (20, 15, 30))
+        self.bg_campfire    = _bg("bg_campfire.png",    (10, 12, 30))
+        # ── Battle ───────────────────────────────────────────────────────────
+        self.bg_battle           = _bg("bg_battle.png",       (30, 10, 50))
+        self.bg_castle_int       = _bg("bg_castle_int.png",   (15, 5, 25))
+        self.bg_ruang_boss       = _bg("ruang_boss.png",      (15, 5, 25))
+        self.bg_ruang_boss_rusak = _bg("ruang_boss_rusak.png",(20, 5, 5))
+        self.bg_hari_pernikahan  = _bg("hari_pernikahan.png", (60, 50, 80))
+
+        # ── Endings ──────────────────────────────────────────────────────────
+        self.bg_ending                 = _bg("bg_ending.png",               (50, 40, 80))
+        self.bg_kota_hancur            = _bg("kota_hancur.png",             (10, 5, 5))
+        self.bg_dalam_belairung_hancur = _bg("dalam_belairung_hancur.png",  (10, 5, 5))
 
     # ── Characters 
 
@@ -236,23 +252,29 @@ class AssetManager:
             os.path.join(arga_dir, "walk_before"), CS)
 
         # === AFTER ISEKAI (setelah dapat Holy Sword) ===
-        # Idle frames — after
+        # Idle frames — after isekai
+        # Mendukung dua struktur folder:
+        #   Lama: idle_front.png + idle_side.png + idle_side_N.png
+        #   Baru: arga-idle1.png ... arga-idleN.png (depan) + arga-idle_sampingN.png (samping)
         idle_after_dir = os.path.join(arga_dir, "idle_after")
-        self.arga_idle_after_front = _load_img(
-            os.path.join(idle_after_dir, "idle_front.png"), CS)
-        self.arga_idle_after_side  = _load_img(
-            os.path.join(idle_after_dir, "idle_side.png"),  CS)
-        # Idle animasi samping (loop) — after isekai
-        _side_files_after = sorted(
-            f for f in __import__("os").listdir(idle_after_dir)
-            if __import__("re").match(r"idle_side_", f) and f.endswith(".png")
-        )
-        if _side_files_after:
-            self.arga_idle_after_frames = [
-                _load_img(__import__("os").path.join(idle_after_dir, f), CS)
-                for f in _side_files_after
-            ]
+        _all_after = sorted(f for f in os.listdir(idle_after_dir) if f.lower().endswith(".png")) if os.path.isdir(idle_after_dir) else []
+
+        # Front: prefer arga-idle*.png (bukan samping), fallback idle_front.png
+        _front_files = [f for f in _all_after if "samping" not in f.lower() and "side" not in f.lower()]
+        if _front_files:
+            self.arga_idle_after_front  = _load_img(os.path.join(idle_after_dir, _front_files[0]), CS)
+            self.arga_idle_after_frames_front = [_load_img(os.path.join(idle_after_dir, f), CS) for f in _front_files]
         else:
+            self.arga_idle_after_front  = _load_img(os.path.join(idle_after_dir, "idle_front.png"), CS)
+            self.arga_idle_after_frames_front = [self.arga_idle_after_front]
+
+        # Side: prefer arga-idle_samping*.png, fallback idle_side*.png
+        _side_files = [f for f in _all_after if "samping" in f.lower() or "side" in f.lower()]
+        if _side_files:
+            self.arga_idle_after_side   = _load_img(os.path.join(idle_after_dir, _side_files[0]), CS)
+            self.arga_idle_after_frames = [_load_img(os.path.join(idle_after_dir, f), CS) for f in _side_files]
+        else:
+            self.arga_idle_after_side   = _load_img(os.path.join(idle_after_dir, "idle_side.png"), CS)
             self.arga_idle_after_frames = [self.arga_idle_after_side]
         # Walk frames — after (8 frame animasi)
         self.arga_walk_after_frames = _load_anim_frames(
@@ -322,6 +344,20 @@ class AssetManager:
         if not self.elena_idle_frames:
             self.elena_idle_frames = [self.char_elena_idle]
 
+        self.elena_dead_frames = _load_anim_frames(
+            os.path.join(heroes_dir, "elena", "dead"),
+            CS
+        )
+        if not self.elena_dead_frames:
+            self.elena_dead_frames = [getattr(self, "elena_dead5", self.char_elena_idle)]
+
+        self.elena_hurt_frames = _load_anim_frames(
+            os.path.join(heroes_dir, "elena", "hurt"),
+            CS
+        )
+        if not self.elena_hurt_frames:
+            self.elena_hurt_frames = [self.char_elena_hurt]
+
        # ── Lyra (Party)
 
         for state in ("idle", "attack", "hurt"):
@@ -350,6 +386,20 @@ class AssetManager:
         if not self.lyra_idle_frames:
             self.lyra_idle_frames = [self.char_lyra_idle]
 
+        self.lyra_dead_frames = _load_anim_frames(
+            os.path.join(heroes_dir, "lyra", "dead"),
+            CS
+        )
+        if not self.lyra_dead_frames:
+            self.lyra_dead_frames = [getattr(self, "lyra_dead6", self.char_lyra_idle)]
+
+        self.lyra_hurt_frames = _load_anim_frames(
+            os.path.join(heroes_dir, "lyra", "hurt"),
+            CS
+        )
+        if not self.lyra_hurt_frames:
+            self.lyra_hurt_frames = [self.char_lyra_hurt]
+
         # ── Darius (Party)
 
         for state in ("idle", "attack", "hurt"):
@@ -365,17 +415,18 @@ class AssetManager:
             "portrait",
             PS
         )
-        # WALK ANIMATION
-        self.darius_walk_frames = _load_anim_frames(
-            os.path.join(heroes_dir, "darius", "walk"),
-            CS
-        )
-        self.darius_idle_frames = _load_anim_frames(
-            os.path.join(heroes_dir, "darius", "idle"),
-            CS
-        )
+        # WALK / IDLE / ATTACK / DEAD ANIMATION — Darius
+        self.darius_walk_frames   = _load_anim_frames(os.path.join(heroes_dir, "darius", "walk"),   CS)
+        self.darius_idle_frames   = _load_anim_frames(os.path.join(heroes_dir, "darius", "idle"),   CS)
+        self.darius_attack_frames = _load_anim_frames(os.path.join(heroes_dir, "darius", "attack"), CS)
+        self.darius_dead_frames   = _load_anim_frames(os.path.join(heroes_dir, "darius", "dead"),   CS)
+        self.darius_hurt_frames   = _load_anim_frames(os.path.join(heroes_dir, "darius", "hurt"),   CS)
         if not self.darius_idle_frames:
             self.darius_idle_frames = [self.char_darius_idle]
+        if not self.darius_attack_frames:
+            self.darius_attack_frames = [self.char_darius_attack]
+        if not self.darius_dead_frames:
+            self.darius_dead_frames = [self.darius_idle_frames[-1]]
         # Darius hurt4 — 1 frame static untuk pose terluka sebelum battle desa
         self.darius_hurt4 = _load_img(
             os.path.join(heroes_dir, "darius", "hurt", "hurt_4.png"), CS
@@ -395,11 +446,11 @@ class AssetManager:
             "portrait",
             PS
         )
-        # WALK ANIMATION
-        self.reno_walk_frames = _load_anim_frames(
-            os.path.join(heroes_dir, "reno", "walk"),
-            CS
-        )
+        # WALK / IDLE / ATTACK / DEAD ANIMATION — Reno
+        self.reno_walk_frames   = _load_anim_frames(os.path.join(heroes_dir, "reno", "walk"),   CS)
+        self.reno_attack_frames = _load_anim_frames(os.path.join(heroes_dir, "reno", "attack"), CS)
+        self.reno_dead_frames   = _load_anim_frames(os.path.join(heroes_dir, "reno", "dead"),   CS)
+        self.reno_hurt_frames   = _load_anim_frames(os.path.join(heroes_dir, "reno", "hurt"),   CS)
         _reno_idle_dir = os.path.join(heroes_dir, "reno", "idle")
         _reno_side = sorted(
             f for f in os.listdir(_reno_idle_dir)
@@ -414,16 +465,38 @@ class AssetManager:
             self.reno_idle_frames = _load_anim_frames(_reno_idle_dir, CS)
         if not self.reno_idle_frames:
             self.reno_idle_frames = [self.char_reno_idle]
+        if not self.reno_attack_frames:
+            self.reno_attack_frames = [self.char_reno_attack]
+        if not self.reno_dead_frames:
+            self.reno_dead_frames = [self.reno_idle_frames[-1]]
         # Dead pose spesifik untuk bad ending
         self.reno_dead5   = _load_img(os.path.join(heroes_dir, "reno",   "dead", "reno-dead5.png"), CS)
         self.elena_dead5  = _load_img(os.path.join(heroes_dir, "elena",  "dead", "dead_5.png"),     CS)
         self.lyra_dead6   = _load_img(os.path.join(heroes_dir, "lyra",   "dead", "dead_6.png"),     CS)
-        self.darius_dead7 = _load_img(os.path.join(heroes_dir, "darius", "dead", "dead_7.png"),     CS)
+        self.darius_dead7 = _load_img(os.path.join(heroes_dir, "darius", "dead", "darius-dead7.png"), CS)
+        self.darius_hurt5 = _load_img(os.path.join(heroes_dir, "darius", "hurt", "darius-hurt5.png"), CS)
         self.arga_hurt3   = _load_img(os.path.join(heroes_dir, "arga",   "hurt_after", "hurt_3.png"), CS)
         # Reno hurt4 — 1 frame static untuk pose terluka sebelum battle hutan
         self.reno_hurt4 = _load_img(
             os.path.join(heroes_dir, "reno", "hurt", "reno-hurt4.png"), CS
         )
+
+        # ── Wedding idle frames (untuk true ending scene pernikahan) ──
+        arga_wedding_dir  = os.path.join(heroes_dir, "arga",  "wedding")
+        elena_wedding_dir = os.path.join(heroes_dir, "elena", "wedding")
+        self.arga_wedding_idle_frames  = _load_anim_frames(arga_wedding_dir,  None)
+        self.elena_wedding_idle_frames = _load_anim_frames(elena_wedding_dir, None)
+        # Fallback ke idle biasa jika folder tidak ada atau kosong
+        if not self.arga_wedding_idle_frames or (
+            len(self.arga_wedding_idle_frames) == 1 and
+            self.arga_wedding_idle_frames[0].get_size() == (32, 32)
+        ):
+            self.arga_wedding_idle_frames = self.arga_idle_before_frames or [self.arga_idle_before_front]
+        if not self.elena_wedding_idle_frames or (
+            len(self.elena_wedding_idle_frames) == 1 and
+            self.elena_wedding_idle_frames[0].get_size() == (32, 32)
+        ):
+            self.elena_wedding_idle_frames = self.elena_idle_frames or [self.char_elena_idle]
 
         # Silence alias references (no-op)
         self.char_elena_idle
@@ -443,28 +516,94 @@ class AssetManager:
         self.char_reno_portrait
 
         # ── Enemies 
+        # Enemies — full animation frames (scaling dilakukan di draw, bukan di sini)
+        MS = None
+
+        # Slime
         slime_dir = os.path.join(enemies_dir, "slime")
-        self.char_slime_idle   = _first_frame(os.path.join(slime_dir, "idle"),   (64, 64)) \
-                                  if os.path.isdir(os.path.join(slime_dir, "idle")) \
-                                  else _load_char(enemies_dir, "slime", "idle", (64, 64))
-        self.char_slime_attack = _first_frame(os.path.join(slime_dir, "attack"), (64, 64)) \
-                                  if os.path.isdir(os.path.join(slime_dir, "attack")) \
-                                  else _load_char(enemies_dir, "slime", "attack", (64, 64))
-        self.char_slime_hurt   = _first_frame(os.path.join(slime_dir, "hurt"),   (64, 64)) \
-                                  if os.path.isdir(os.path.join(slime_dir, "hurt")) \
-                                  else _load_char(enemies_dir, "slime", "hurt", (64, 64))
-        self.char_slime_dead   = _first_frame(os.path.join(slime_dir, "dead"),   (64, 64)) \
-                                  if os.path.isdir(os.path.join(slime_dir, "dead")) \
-                                  else _load_char(enemies_dir, "slime", "dead", (64, 64))
+        self.slime_idle_frames  = _load_anim_frames(os.path.join(slime_dir, "idle"), MS)
+        self.slime_walk_frames  = _load_anim_frames(os.path.join(slime_dir, "walk"), MS)
+        _slime_dead_dir = os.path.join(slime_dir, "dead")
+        self.slime_dead_frames  = (_load_anim_frames(_slime_dead_dir, MS)
+                                   if os.path.isdir(_slime_dead_dir) and os.listdir(_slime_dead_dir)
+                                   else [self.slime_idle_frames[-1]])
+        self.char_slime_idle    = self.slime_idle_frames[0]
+        self.char_slime_attack  = self.slime_idle_frames[0]
+        self.char_slime_hurt    = self.slime_idle_frames[0]
+        self.char_slime_dead    = self.slime_dead_frames[-1]
 
-        self.char_mushroom_idle = _load_char(enemies_dir, "mushroom", "idle", (64, 64))
-        self.char_goblin_idle   = _load_char(enemies_dir, "goblin", "idle", (64, 64))
+        # Goblin
+        goblin_dir = os.path.join(enemies_dir, "goblin")
+        self.goblin_idle_frames = _load_anim_frames(os.path.join(goblin_dir, "idle"), MS)
+        self.goblin_walk_frames = _load_anim_frames(os.path.join(goblin_dir, "walk"), MS)
+        self.goblin_dead_frames = _load_anim_frames(os.path.join(goblin_dir, "dead"), MS)
+        self.char_goblin_idle   = self.goblin_idle_frames[0]
 
+        # Minotaur — menggantikan Stone Golem, Dark Knight, Orc
+        mino_dir = os.path.join(enemies_dir, "minotaur")
+        self.minotaur_idle_frames = _load_anim_frames(os.path.join(mino_dir, "idle"), MS)
+        self.minotaur_walk_frames = _load_anim_frames(os.path.join(mino_dir, "walk"), MS)
+        self.minotaur_dead_frames = _load_anim_frames(os.path.join(mino_dir, "dead"), MS)
+        self.char_minotaur_idle   = self.minotaur_idle_frames[0]
+
+        # Mushroom dihapus — alias fallback aman
+        self.char_mushroom_idle = self.char_goblin_idle
+
+        # ── Demon King — load semua frame animasi ──
         demon_king_dir = os.path.join(enemies_dir, "demon_king")
-        if os.path.isdir(demon_king_dir):
-            self.char_demon_king_idle = _first_frame(demon_king_dir, BS)
-        else:
-            self.char_demon_king_idle = _load_char(enemies_dir, "demon_king", "idle", BS)
+
+        # Idle frames — pisahkan idle_side dari idle_front
+        dk_idle_dir = os.path.join(demon_king_dir, "idle")
+        # Idle side: file yang namanya mengandung "side" (demon-idle_side1..5)
+        _dk_side_files = sorted(
+            f for f in os.listdir(dk_idle_dir)
+            if f.lower().endswith((".png", ".jpg")) and "side" in f.lower()
+        ) if os.path.isdir(dk_idle_dir) else []
+        self.demon_king_idle_side_frames = (
+            [_load_img(os.path.join(dk_idle_dir, f), BS) for f in _dk_side_files]
+            if _dk_side_files else []
+        )
+        # Idle front: file yang namanya TIDAK mengandung "side"
+        _dk_front_files = sorted(
+            f for f in os.listdir(dk_idle_dir)
+            if f.lower().endswith((".png", ".jpg")) and "side" not in f.lower()
+        ) if os.path.isdir(dk_idle_dir) else []
+        self.demon_king_idle_frames = (
+            [_load_img(os.path.join(dk_idle_dir, f), BS) for f in _dk_front_files]
+            if _dk_front_files else []
+        )
+        if not self.demon_king_idle_frames:
+            self.demon_king_idle_frames = [_load_char(enemies_dir, "demon_king", "idle", BS)]
+        # Jika idle_side tidak tersedia, fallback ke idle_front
+        if not self.demon_king_idle_side_frames:
+            self.demon_king_idle_side_frames = self.demon_king_idle_frames
+        self.char_demon_king_idle = self.demon_king_idle_side_frames[0]
+
+        # Attack frames (demon-att-1..5)
+        dk_attack_dir = os.path.join(demon_king_dir, "attack")
+        self.demon_king_attack_frames = _load_anim_frames(dk_attack_dir, BS)
+        if not self.demon_king_attack_frames:
+            self.demon_king_attack_frames = self.demon_king_idle_frames
+        self.char_demon_king_attack = self.demon_king_attack_frames[0]
+
+        # Ultimate frames (demon-ulti1..8)
+        dk_ult_dir = os.path.join(demon_king_dir, "ultimate")
+        self.demon_king_ultimate_frames = _load_anim_frames(dk_ult_dir, BS)
+        if not self.demon_king_ultimate_frames:
+            self.demon_king_ultimate_frames = self.demon_king_idle_frames
+        self.char_demon_king_ultimate = self.demon_king_ultimate_frames[0]
+
+        # Hurt frames (demon-hurt1..4)
+        dk_hurt_dir = os.path.join(demon_king_dir, "hurt")
+        self.demon_king_hurt_frames = _load_anim_frames(dk_hurt_dir, BS)
+        if not self.demon_king_hurt_frames:
+            self.demon_king_hurt_frames = self.demon_king_idle_frames
+
+        # Dead frames (demon-dead1..5)
+        dk_dead_dir = os.path.join(demon_king_dir, "dead")
+        self.demon_king_dead_frames = _load_anim_frames(dk_dead_dir, BS)
+        if not self.demon_king_dead_frames:
+            self.demon_king_dead_frames = self.demon_king_idle_frames
 
         # ── NPC 
         for npc in ("king", "village_elder", "merchant", "guard"):
@@ -474,6 +613,43 @@ class AssetManager:
             else:
                 surf = _load_img(os.path.join(npc_dir, f"{npc}.png"), PS)
             setattr(self, f"char_npc_{npc}", surf)
+
+        # ── NPC Opening: Mahasiswa & Pekerja Kantoran ──
+        self.npc_college_frames = _load_anim_frames(os.path.join(npc_dir, "college"), None)
+        self.npc_worker_frames  = _load_anim_frames(os.path.join(npc_dir, "worker"),  None)
+        if not self.npc_college_frames:
+            self.npc_college_frames = [_load_img("__missing__", None)]
+        if not self.npc_worker_frames:
+            self.npc_worker_frames  = [_load_img("__missing__", None)]
+
+        # ── NPC Chapter 1: King Aldric, Mage, Knight ──
+        self.king_aldric_idle_frames = _load_anim_frames(os.path.join(npc_dir, "king_aldric"), None)
+        self.mage_idle_frames        = _load_anim_frames(os.path.join(npc_dir, "mage"),        None)
+        self.knight_idle_frames      = _load_anim_frames(os.path.join(npc_dir, "knight"),      None)
+        if not self.king_aldric_idle_frames:
+            self.king_aldric_idle_frames = [_load_img("__missing__", None)]
+        if not self.mage_idle_frames:
+            self.mage_idle_frames = [_load_img("__missing__", None)]
+        if not self.knight_idle_frames:
+            self.knight_idle_frames = [_load_img("__missing__", None)]
+        # Alias single-frame untuk kompatibilitas KingdomNPC/char_npc_ lookup
+        self.char_npc_king_aldric = self.king_aldric_idle_frames[0]
+        self.char_npc_mage        = self.mage_idle_frames[0]
+        self.char_npc_knight      = self.knight_idle_frames[0]
+
+        # ── NPC Chapter 2 (Town): Citizen Child, Citizen Man, Old Man, Soldier ──
+        self.citizen_child_idle_frames = _load_anim_frames(os.path.join(npc_dir, "citizen-child"), None)
+        self.citizen_man_idle_frames   = _load_anim_frames(os.path.join(npc_dir, "citizen-man"),   None)
+        self.oldman_idle_frames        = _load_anim_frames(os.path.join(npc_dir, "oldman"),        None)
+        self.soldier_idle_frames       = _load_anim_frames(os.path.join(npc_dir, "soldier"),       None)
+        if not self.citizen_child_idle_frames:
+            self.citizen_child_idle_frames = [_load_img("__missing__", None)]
+        if not self.citizen_man_idle_frames:
+            self.citizen_man_idle_frames = [_load_img("__missing__", None)]
+        if not self.oldman_idle_frames:
+            self.oldman_idle_frames = [_load_img("__missing__", None)]
+        if not self.soldier_idle_frames:
+            self.soldier_idle_frames = [_load_img("__missing__", None)]
 
     # ── UI 
 
@@ -494,8 +670,11 @@ class AssetManager:
 
     def _load_holy_sword(self):
         d = _p("holy_sword")
-        self.holy_sword      = _load_img(os.path.join(d, "holy_sword.png"),      (40, 100))
-        self.holy_sword_glow = _load_img(os.path.join(d, "holy_sword_glow.png"), (100, 100))
+        # Load full-res sword sprite (scaling dilakukan saat draw)
+        sword_path = os.path.join(d, "holy_sword.png")
+        self.holy_sword = _load_img(sword_path) if os.path.isfile(sword_path) else None
+        # Glow sprite tidak lagi digunakan — efek partikel dirender secara prosedural
+        self.holy_sword_glow = None
 
     # ── Audio ─────────────────────────────────────────────────
 

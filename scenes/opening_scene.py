@@ -30,12 +30,51 @@ class OpeningScene(Scene):
         self._dialogue_step = 0
 
         # ── Karakter Arga dengan animasi ──
-        ground_y = int(game.H * 0.65)
+        ground_y = game.H - 177 - 15
         self._player = Player(200.0, float(ground_y))
-        self._player.before_isekai = True           # masih di dunia asli, belum dapat Holy Sword
+        self._player.before_isekai = True
+        self._player._draw_scale = 1.0
         self._player_target_x = 450.0
-        self._player_walk_dir = True                # True = jalan ke kanan
-        self._player_walk_speed = 60.0              # diperlambat agar terasa natural
+        self._player_walk_dir = True
+        self._player_walk_speed = 60.0
+
+        # ── NPC: Mahasiswa & Pekerja Kantoran ──
+        # Posisi: di latar belakang, sedikit lebih kecil dari Arga
+        # Mahasiswa di kiri agak jauh, Pekerja kantoran di kanan
+        self._npc_ground_y = float(ground_y)
+        self._npc_college_x = 680.0   # mahasiswa - di kanan Arga
+        self._npc_worker_x  = 900.0   # pekerja kantoran - lebih ke kanan
+        self._npc_anim_timer = 0.0
+        self._npc_frame_duration = 0.18   # ganti frame tiap 0.18 detik
+        self._npc_college_frame = 0
+        self._npc_worker_frame  = 0
+
+        # Balon dialog NPC (muncul sesekali, tampil beberapa detik lalu hilang)
+        self._npc_bubble_timer   = 2.5    # timer pertama sebelum bubble pertama muncul
+        self._npc_bubble_interval= 4.5    # interval antar bubble
+        self._npc_bubble_active  = False
+        self._npc_bubble_duration= 3.2    # durasi bubble tampil
+        self._npc_bubble_elapsed = 0.0
+        self._npc_bubble_which   = 0      # 0 = mahasiswa, 1 = pekerja
+        self._npc_bubble_texts = [
+            # (karakter, teks)
+            ("Mahasiswa",       "Aduh, tugas deadline bentar lagi..."),
+            ("Pekerja Kantoran","Lembur lagi... capek juga ya hidup ini."),
+            ("Mahasiswa",       "Eh, udah malem gini masih belum kelar juga."),
+            ("Pekerja Kantoran","Besok meeting pagi, tidur kapan dong..."),
+            ("Mahasiswa",       "Mana ukt belum dibayar... pusing."),
+            ("Pekerja Kantoran","Macet, hujan, cape... mantap dah."),
+        ]
+        self._npc_bubble_idx = 0
+        self._npc_bubble_text = ""
+        self._npc_bubble_name = ""
+        # Font untuk bubble NPC
+        try:
+            self._font_bubble = pygame.font.SysFont("Georgia", 16, italic=True)
+            self._font_bubble_name = pygame.font.SysFont("Georgia", 14, bold=True)
+        except Exception:
+            self._font_bubble = pygame.font.Font(None, 18)
+            self._font_bubble_name = pygame.font.Font(None, 16)
 
         self._title_alpha = 0
         self._subtitle_alpha = 0
@@ -55,7 +94,7 @@ class OpeningScene(Scene):
             self._font_narr   = pygame.font.Font(None, 22)
 
         self._dialogue_data = [
-           ("Arga", "Hahhh..."),
+            ("Arga", "Hahhh..."),
             ("Arga", "Hidup kok gini amat yah.."),
             ("Arga", "Bangun..nugas..kuliah..kerja..makan..terus tidur lagi.."),
             ("Arga", "Bosenin banget dah.."),
@@ -120,7 +159,6 @@ class OpeningScene(Scene):
                     self._dialogue.show(txt, spk)
                     self._game.assets.play("cursor")
                 else:
-                    # Mulai efek magic circle
                     self._phase = "magic"
                     self._phase_timer = 0.0
                     self._dialogue.hide()
@@ -144,6 +182,24 @@ class OpeningScene(Scene):
     def _go_to_chapter1(self):
         from scenes.chapter1_scene import Chapter1Scene
         self._game.replace_scene(Chapter1Scene(self._game))
+
+    def _update_npc_bubbles(self, dt):
+        """Update logika bubble dialog NPC yang muncul otomatis."""
+        if self._npc_bubble_active:
+            self._npc_bubble_elapsed += dt
+            if self._npc_bubble_elapsed >= self._npc_bubble_duration:
+                self._npc_bubble_active = False
+                self._npc_bubble_timer  = self._npc_bubble_interval
+                self._npc_bubble_idx = (self._npc_bubble_idx + 1) % len(self._npc_bubble_texts)
+        else:
+            self._npc_bubble_timer -= dt
+            if self._npc_bubble_timer <= 0:
+                name, text = self._npc_bubble_texts[self._npc_bubble_idx]
+                self._npc_bubble_name = name
+                self._npc_bubble_text = text
+                self._npc_bubble_which = 0 if name == "Mahasiswa" else 1
+                self._npc_bubble_active  = True
+                self._npc_bubble_elapsed = 0.0
 
     def update(self, dt: float) -> None:
         self._t += dt
@@ -173,12 +229,13 @@ class OpeningScene(Scene):
             if self._phase_timer < 0.1 and self._dialogue_step == 0:
                 spk, txt = self._dialogue_data[0]
                 self._dialogue.show(txt, spk)
-            # Arga berjalan perlahan ke kanan (pakai speed yang sudah diperlambat)
             if self._player._x < self._player_target_x:
                 self._player._x = min(self._player_target_x, self._player._x + self._player_walk_speed * dt)
-                self._player.set_walking(True, True)    # jalan ke kanan
+                self._player.set_walking(True, True)
             else:
-                self._player.set_walking(False)          # berhenti, hadap kanan
+                self._player.set_walking(False)
+            # NPC bubble dialog
+            self._update_npc_bubbles(dt)
 
         elif self._phase == "magic":
             self._input_ready = True
@@ -187,11 +244,10 @@ class OpeningScene(Scene):
                 if 0 <= idx < len(self._post_flash_data):
                     spk, txt = self._post_flash_data[idx]
                     self._dialogue.show(txt, spk)
-            # Arga berhenti saat magic circle muncul
             self._player.set_walking(False)
-            # Magic circle muncul
             if len(self._magic_circles) < 3 and self._phase_timer > 0.3:
                 self._magic_circles.append({'r': 10, 'alpha': 200, 'angle': 0})
+            self._update_npc_bubbles(dt)
 
         elif self._phase == "flash":
             self._input_ready = False
@@ -199,7 +255,6 @@ class OpeningScene(Scene):
             if self._phase_timer > 1.2:
                 self._phase = "chapter1"
                 self._phase_timer = 0.0
-                self._dialogue.show("Apa... tempat ini?", "Arga")
                 self._input_ready = True
 
         elif self._phase == "chapter1":
@@ -208,18 +263,122 @@ class OpeningScene(Scene):
         # Update player animasi
         self._player.update(dt)
 
+        # Update NPC animasi idle (ganti frame)
+        self._npc_anim_timer += dt
+        if self._npc_anim_timer >= self._npc_frame_duration:
+            self._npc_anim_timer = 0.0
+            frames_c = getattr(self._game.assets, 'npc_college_frames', [])
+            frames_w = getattr(self._game.assets, 'npc_worker_frames',  [])
+            if frames_c:
+                self._npc_college_frame = (self._npc_college_frame + 1) % len(frames_c)
+            if frames_w:
+                self._npc_worker_frame  = (self._npc_worker_frame  + 1) % len(frames_w)
+
         # Update magic circles
         for mc in self._magic_circles:
             mc['r'] = min(100, mc['r'] + 40*dt)
             mc['angle'] += dt * 120
 
-    def draw(self, surface: pygame.Surface) -> None:
-        # Background kota malam
-        surface.blit(self._game.assets.bg_night_city, (0, 0))
+    def _draw_char_scaled(self, surface, char, scale=1.8):
+        """Gambar karakter dengan scale lebih besar — sama seperti chapter 1."""
+        tmp = pygame.Surface((surface.get_width(), surface.get_height()), pygame.SRCALPHA)
+        char.draw(tmp)
+        region = tmp.get_bounding_rect()
+        if region.width < 2 or region.height < 2:
+            char.draw(surface)
+            return
+        char_surf = tmp.subsurface(region).copy()
+        new_w = int(char_surf.get_width()  * scale)
+        new_h = int(char_surf.get_height() * scale)
+        scaled = pygame.transform.scale(char_surf, (new_w, new_h))
+        foot_x = region.centerx
+        foot_y = region.bottom
+        surface.blit(scaled, (foot_x - new_w // 2, foot_y - new_h))
 
+    def _draw_npc(self, surface, frames, frame_idx, x, y, scale=2.2):
+        """Gambar NPC idle — normalisasi tinggi ke SPRITE_BASE_H dulu,
+        lalu scale dengan nilai yang sama seperti Arga (2.2).
+        Hasilnya semua karakter tampil seukuran terlepas dari resolusi PNG aslinya."""
+        if not frames:
+            return
+        SPRITE_BASE_H = 96  # tinggi referensi, sama seperti asumsi di draw_char_scaled
+        frame_idx = frame_idx % len(frames)
+        img = frames[frame_idx]
+        # Normalisasi ke SPRITE_BASE_H dulu (jaga aspek rasio)
+        orig_w, orig_h = img.get_size()
+        if orig_h > 0:
+            norm_w = int(orig_w * SPRITE_BASE_H / orig_h)
+            norm_h = SPRITE_BASE_H
+        else:
+            norm_w, norm_h = orig_w, orig_h
+        normalized = pygame.transform.scale(img, (norm_w, norm_h))
+        # Lalu scale dengan nilai yang sama seperti Arga
+        new_w = int(norm_w * scale)
+        new_h = int(norm_h * scale)
+        scaled = pygame.transform.scale(normalized, (new_w, new_h))
+        surface.blit(scaled, (int(x) - new_w // 2, int(y) - new_h))
+
+    def _draw_npc_bubble(self, surface, text, name, x, y, align_right=False):
+        """Gambar balon dialog kecil di atas NPC."""
+        pad_x, pad_y = 10, 7
+        max_w = 240
+        # Word wrap sederhana
+        words = text.split()
+        lines = []
+        current = ""
+        for w in words:
+            test = (current + " " + w).strip()
+            if self._font_bubble.size(test)[0] <= max_w - pad_x * 2:
+                current = test
+            else:
+                if current:
+                    lines.append(current)
+                current = w
+        if current:
+            lines.append(current)
+
+        line_h = self._font_bubble.get_height() + 2
+        name_h = self._font_bubble_name.get_height() + 4
+        box_h  = pad_y * 2 + name_h + len(lines) * line_h
+        box_w  = max_w
+
+        # Posisi box di atas karakter
+        bx = int(x) - box_w // 2
+        by = int(y) - box_h - 12
+
+        # Clamp agar tidak keluar layar
+        bx = max(4, min(bx, surface.get_width() - box_w - 4))
+        by = max(4, by)
+
+        # Gambar kotak dengan alpha
+        box = pygame.Surface((box_w, box_h), pygame.SRCALPHA)
+        pygame.draw.rect(box, (20, 20, 40, 210), (0, 0, box_w, box_h), border_radius=8)
+        pygame.draw.rect(box, (120, 140, 200, 180), (0, 0, box_w, box_h), 1, border_radius=8)
+
+        # Nama NPC
+        name_surf = self._font_bubble_name.render(name, True, (180, 210, 255))
+        box.blit(name_surf, (pad_x, pad_y))
+
+        # Teks dialog
+        for i, line in enumerate(lines):
+            t_surf = self._font_bubble.render(line, True, (220, 220, 220))
+            box.blit(t_surf, (pad_x, pad_y + name_h + i * line_h))
+
+        surface.blit(box, (bx, by))
+
+        # Ekor segitiga kecil mengarah ke karakter
+        tip_x = int(x)
+        tip_x = max(bx + 10, min(tip_x, bx + box_w - 10))
+        tip_y = by + box_h
+        pygame.draw.polygon(surface, (20, 20, 40, 210),
+                            [(tip_x - 7, tip_y), (tip_x + 7, tip_y), (tip_x, tip_y + 8)])
+
+    def draw(self, surface: pygame.Surface) -> None:
         if self._phase == "title":
+            surface.blit(self._game.assets.bg_night_city, (0, 0))
             self._draw_title(surface)
         elif self._phase in ("narration", "magic", "flash", "chapter1"):
+            surface.blit(self._game.assets.bg_prolog, (0, 0))
             self._draw_city_scene(surface)
 
         self._narrator.draw(surface)
@@ -237,12 +396,10 @@ class OpeningScene(Scene):
                 pass
 
     def _draw_title(self, surface):
-        # Bintang
         for star in self._stars:
             tw = int(128+127*math.sin(self._t*star.get('speed', 1.0) if 'speed' in star else self._t+star['phase']))
             pygame.draw.circle(surface,(tw,tw,tw),(star['x'],star['y']),star['size'])
 
-        # Judul game
         try:
             title_txt = self._font_title.render("Summoned To Another World", True, UI_ACCENT)
             title_txt.set_alpha(int(self._title_alpha))
@@ -269,8 +426,39 @@ class OpeningScene(Scene):
             end_y = int(d['y'] + d['length'])
             pygame.draw.line(surface, (150,180,220,100), (int(d['x']),int(d['y'])),(end_x,end_y),1)
 
-        # Karakter Arga (animasi multi-frame)
-        self._player.draw(surface)
+        # ── NPC: gambar lebih dulu (di belakang Arga) ──
+        frames_c = getattr(self._game.assets, 'npc_college_frames', [])
+        frames_w = getattr(self._game.assets, 'npc_worker_frames',  [])
+
+        self._draw_npc(surface, frames_c, self._npc_college_frame,
+                       self._npc_college_x, self._npc_ground_y)
+        self._draw_npc(surface, frames_w, self._npc_worker_frame,
+                       self._npc_worker_x,  self._npc_ground_y)
+
+        # Bubble dialog NPC (hanya di phase narration / magic)
+        if self._phase in ("narration", "magic") and self._npc_bubble_active:
+            # Fade berdasarkan elapsed (muncul dan hilang smooth)
+            alpha_ratio = 1.0
+            fade_dur = 0.4
+            if self._npc_bubble_elapsed < fade_dur:
+                alpha_ratio = self._npc_bubble_elapsed / fade_dur
+            elif self._npc_bubble_elapsed > self._npc_bubble_duration - fade_dur:
+                alpha_ratio = (self._npc_bubble_duration - self._npc_bubble_elapsed) / fade_dur
+            alpha_ratio = max(0.0, min(1.0, alpha_ratio))
+
+            if alpha_ratio > 0.05:
+                CHAR_H = int(96 * 2.2)  # tinggi karakter setelah normalisasi + scale
+                if self._npc_bubble_which == 0:
+                    bx = self._npc_college_x
+                    by = self._npc_ground_y - CHAR_H
+                else:
+                    bx = self._npc_worker_x
+                    by = self._npc_ground_y - CHAR_H
+                self._draw_npc_bubble(surface, self._npc_bubble_text,
+                                      self._npc_bubble_name, bx, by)
+
+        # ── Karakter Arga (di depan NPC) ──
+        self._draw_char_scaled(surface, self._player, 2.2)
 
         # Magic circles
         px = int(self._player._x)

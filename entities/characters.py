@@ -7,7 +7,7 @@ Entity (ABC)
 └── Character          ← kelas menengah
     ├── Player         ← dikontrol pemain (Arga)
     └── NPC            ← karakter non-player
-        ├── TownNPC    ← warga biasa
+        ├── KingdomNPC    ← warga biasa
         ├── PartyNPC   ← anggota party (Elena, Lyra, Darius)
         ├── BossNPC    ← musuh boss (Demon King)
         └── MonsterNPC ← musuh biasa (Slime, Mushroom, dll)
@@ -22,7 +22,7 @@ Nama karakter:
 import pygame
 import math
 import random
-from engine.base import Entity, BattleEntity
+from engine.base import Entity
 
 
 # ── Helper internal ───────────────────────────────────────────
@@ -36,8 +36,14 @@ def _get_assets():
         return None
 
 
-def _blit_centered(surface: pygame.Surface, sprite: pygame.Surface, cx: int, cy: int):
-    """Blit sprite dengan titik anchor di tengah-bawah (kaki karakter)."""
+def _blit_centered(surface: pygame.Surface, sprite: pygame.Surface, cx: int, cy: int, scale: float = 1.0):
+    """Blit sprite dengan titik anchor di tengah-bawah (kaki karakter).
+    scale > 1.0 memperbesar sprite tanpa mengubah posisi kaki.
+    """
+    if scale != 1.0:
+        w0, h0 = sprite.get_size()
+        nw, nh = int(w0 * scale), int(h0 * scale)
+        sprite  = pygame.transform.scale(sprite, (nw, nh))
     w, h = sprite.get_size()
     surface.blit(sprite, (cx - w // 2, cy - h))
 
@@ -63,6 +69,7 @@ class Character(Entity):
         self._facing_right = True
         self._highlight = False
         self._scale = 1.0
+        self._draw_scale = 1.0   # skala render; ubah per-scene untuk resize karakter
 
     @property
     def emotion(self) -> str:
@@ -97,7 +104,7 @@ class Character(Entity):
         if assets:
             sprite = assets.get_character(self._name, self.__emotion, (96, 96))
             if sprite:
-                _blit_centered(surface, sprite, x, y)
+                _blit_centered(surface, sprite, x, y, self._draw_scale)
                 self._draw_highlight(surface, x, y)
                 return
         self._draw_body(surface, x, y)
@@ -136,11 +143,10 @@ class Character(Entity):
 # ─────────────────────────────────────────────────────────────
 # PLAYER — Arga  (dengan sistem animasi multi-frame)
 # ─────────────────────────────────────────────────────────────
-class Player(Character, BattleEntity):
+class Player(Character):
     """
-    [INHERITANCE] Mewarisi Character DAN BattleEntity.
-    [ENCAPSULATION] __hp, __mp, __stats private.
-    [POLYMORPHISM] use_skill() berbeda dari NPC/Boss.
+    [INHERITANCE] Mewarisi Character.
+    [ENCAPSULATION] __hp private.
 
     Hero utama: Arga
     Asset: assets/characters/heroes/arga/
@@ -155,7 +161,6 @@ class Player(Character, BattleEntity):
 
     ANIM_SPEEDS = {
         "walk":   0.06,   # detik per frame (8 frame = ~0.8s per siklus)
-        "idle":   0.18,   # detik per frame idle animasi samping
         "idle":   0.50,   # idle lebih lambat, terasa natural
         "attack": 0.12,   # attack sedikit lebih lambat agar terlihat
         "hurt":   0.15,
@@ -163,26 +168,16 @@ class Player(Character, BattleEntity):
         "defend": 0.25,
     }
 
-    SKILLS = {
-        "Divine Slash":         {"dmg": 800,  "mp": 0,   "type": "physical", "desc": "Tebasan pedang suci"},
-        "Celestial Flame":      {"dmg": 1200, "mp": 20,  "type": "magic",    "desc": "Api surgawi"},
-        "Holy Barrier":         {"dmg": 0,    "mp": 30,  "type": "buff",     "desc": "Barrier suci"},
-        "Time Acceleration":    {"dmg": 0,    "mp": 40,  "type": "buff",     "desc": "Percepat waktu"},
-        "Absolute Regeneration":{"dmg": 0,    "mp": 50,  "type": "heal",     "desc": "Regenerasi total"},
-        "LIMIT BREAK":          {"dmg": 9999, "mp": 100, "type": "ultimate", "desc": "CELESTIAL OVERDRIVE!!"},
-    }
 
     def __init__(self, x: float, y: float):
         super().__init__("Arga", x, y, (70, 100, 180))
         self.__hp = 9999
         self.__max_hp = 9999
-        self.__mp = 100
-        self.__max_mp = 100
         self.__level = 99
-        self.__stats = {"STR": 999, "MAG": 999, "DEF": 999, "SPD": 999}
 
         # === Sistem Animasi ===
         self.before_isekai = True      # True = sebelum Holy Sword, False = setelah
+        self.use_front_idle = False    # True = paksa idle menghadap depan (bukan samping)
         self._anim_state  = "idle"    # state animasi saat ini
         self._frame_idx   = 0         # index frame saat ini
         self._frame_timer = 0.0       # timer untuk pergantian frame
@@ -196,16 +191,6 @@ class Player(Character, BattleEntity):
     def hp(self): return self.__hp
     @property
     def max_hp(self): return self.__max_hp
-    @property
-    def mp(self): return self.__mp
-    @property
-    def max_mp(self): return self.__max_mp
-    @property
-    def level(self): return self.__level
-
-    def get_stats(self) -> dict:
-        return dict(self.__stats)
-
     # ── Kontrol animasi dari luar ──────────────────────────────
 
     def set_walking(self, moving: bool, direction_right: bool = None):
@@ -268,28 +253,10 @@ class Player(Character, BattleEntity):
             elif self._anim_state == "defend":
                 return assets.arga_defend_frames
             else:
-                # Idle animasi samping — multi frame loop
+                # Idle: depan atau samping sesuai flag
+                if getattr(self, "use_front_idle", False):
+                    return getattr(assets, "arga_idle_after_frames_front", [assets.arga_idle_after_front])
                 return getattr(assets, "arga_idle_after_frames", [assets.arga_idle_after_side])
-
-    def use_skill(self, skill_name: str, target) -> dict:
-        """[POLYMORPHISM] Implementasi use_skill untuk Player (Arga)."""
-        skill = self.SKILLS.get(skill_name, {})
-        dmg = skill.get("dmg", 0)
-        mp_cost = skill.get("mp", 0)
-        if self.__mp < mp_cost:
-            return {"success": False, "msg": "MP tidak cukup!"}
-        self.__mp -= mp_cost
-        actual = target.take_damage(dmg) if target and hasattr(target, "take_damage") else dmg
-        return {"success": True, "damage": actual,
-                "type": skill.get("type", "physical"), "msg": skill.get("desc", "")}
-
-    def take_damage(self, amount: int) -> int:
-        actual = max(1, amount // 100)
-        self.__hp = max(0, self.__hp - actual)
-        return actual
-
-    def is_alive(self) -> bool:
-        return self.__hp > 0
 
     def update(self, dt: float) -> None:
         """Update animasi frame-by-frame."""
@@ -346,11 +313,11 @@ class Player(Character, BattleEntity):
                 if not self._facing_right:
                     sprite = pygame.transform.flip(sprite, True, False)
 
-                _blit_centered(surface, sprite, x, y)
+                _blit_centered(surface, sprite, x, y, self._draw_scale)
                 drawn = True
 
         if not drawn:
-            self._draw_body(surface, x, y)
+            self._draw_body(surface, x, y, self._draw_scale)
 
     def interact(self) -> str:
         return "player"
@@ -375,7 +342,7 @@ class NPC(Character):
         return line
 
 
-class TownNPC(NPC):
+class KingdomNPC(NPC):
     """[INHERITANCE] NPC warga kota."""
 
     def __init__(self, name, x, y, color=None, role="citizen"):
@@ -401,11 +368,11 @@ class TownNPC(NPC):
                 # Flip jika menghadap kiri
                 if not self._facing_right:
                     sprite = pygame.transform.flip(sprite, True, False)
-                _blit_centered(surface, sprite, x, y)
+                _blit_centered(surface, sprite, x, y, self._draw_scale)
                 drawn = True
 
         if not drawn:
-            self._draw_body(surface, x, y)
+            self._draw_body(surface, x, y, self._draw_scale)
 
         self._draw_highlight(surface, x, y)
 
@@ -413,24 +380,12 @@ class TownNPC(NPC):
         return super().interact()
 
 
-class PartyNPC(NPC, BattleEntity):
-
-    PARTY_SKILLS = {
-        "Elena":  {"skill": "Royal Heal",   "dmg": 0,   "heal": 500, "desc": "Sihir penyembuhan kerajaan"},
-        "Lyra":   {"skill": "Arcane Burst", "dmg": 900, "heal": 0,   "desc": "Ledakan sihir murni"},
-        "Darius": {"skill": "Iron Wall",    "dmg": 400, "heal": 0,   "desc": "Serangan dengan perisai baja"},
-        "Luna":   {"skill": "Lunar Veil",   "dmg": 0,   "heal": 400, "desc": "Sihir bulan penyembuh"},
-        "Kael":   {"skill": "Storm Blade",  "dmg": 0,   "heal": 0,   "desc": "Serangan petir"},
-        "Aria":   {"skill": "Arcane Song",  "dmg": 0,   "heal": 0,   "desc": "Mantra penyemangat"},
-        "Reno":   {"skill": "Wild Strike",  "dmg": 600, "heal": 0,   "desc": "Serangan liar penuh tenaga"},
-    }
+class PartyNPC(NPC):
 
     COLORS = {
         "Elena":  (220, 180, 220),
         "Lyra":   (100, 140, 200),
         "Darius": (140, 130, 120),
-        "Luna":   (180, 200, 240),
-        "Kael":   (100, 160, 220),
         "Aria":   (220, 160, 200),
         "Reno":   (200, 120, 60),
     }
@@ -474,27 +429,6 @@ class PartyNPC(NPC, BattleEntity):
     @property
     def knocked_out(self):
         return self._knocked_out
-
-    def use_skill(self, skill_name: str, target) -> dict:
-        data = self.PARTY_SKILLS.get(self._name, {})
-        return {
-            "damage": 0,
-            "fake": True,
-            "desc": data.get("desc", ""),
-            "skill": data.get("skill", "")
-        }
-
-    def take_damage(self, amount: int) -> int:
-        actual = min(self.__hp, amount)
-        self.__hp -= actual
-
-        if self.__hp <= 0:
-            self._knocked_out = True
-
-        return actual
-
-    def is_alive(self) -> bool:
-        return self.__hp > 0
 
     def set_walking(self, moving: bool, direction_right=None):
         """Kontrol animasi walk secara manual (dipanggil dari luar / walkin)."""
@@ -597,9 +531,9 @@ class PartyNPC(NPC, BattleEntity):
             if sprite is not None:
                 if not self._facing_right:
                     sprite = pygame.transform.flip(sprite, True, False)
-                _blit_centered(surface, sprite, x, y)
+                _blit_centered(surface, sprite, x, y, self._draw_scale)
             else:
-                self._draw_body(surface, x, y)
+                self._draw_body(surface, x, y, self._draw_scale)
             return
 
         # ── 2. KO state ────────────────────────────────────────────────────────
@@ -620,9 +554,9 @@ class PartyNPC(NPC, BattleEntity):
                 if dead:
                     if not self._facing_right:
                         dead = pygame.transform.flip(dead, True, False)
-                    _blit_centered(surface, dead, x, y)
+                    _blit_centered(surface, dead, x, y, self._draw_scale)
                     return
-            self._draw_body(surface, x, y)
+            self._draw_body(surface, x, y, self._draw_scale)
             return
 
         # ── 3. Normal (walk / idle) ────────────────────────────────────────────
@@ -644,19 +578,18 @@ class PartyNPC(NPC, BattleEntity):
             if sprite is not None:
                 if not self._facing_right:
                     sprite = pygame.transform.flip(sprite, True, False)
-                _blit_centered(surface, sprite, x, y)
+                _blit_centered(surface, sprite, x, y, self._draw_scale)
                 drawn = True
 
         if not drawn:
-            self._draw_body(surface, x, y)
+            self._draw_body(surface, x, y, self._draw_scale)
 
     def interact(self) -> str:
         return super().interact()
 
-class BossNPC(NPC, BattleEntity):
+class BossNPC(NPC):
     """
     [INHERITANCE] Boss karakter (Demon King).
-    [POLYMORPHISM] use_skill() dan draw() berbeda dan jauh lebih kuat.
     """
 
     def __init__(self, x: float, y: float):
@@ -673,30 +606,6 @@ class BossNPC(NPC, BattleEntity):
     @property
     def phase(self): return self.__phase
 
-    def use_skill(self, skill_name: str, target) -> dict:
-        """[POLYMORPHISM] Boss punya skill mematikan."""
-        skills = {
-            "Dark Slash":    {"dmg": 500,  "desc": "Tebasan kegelapan"},
-            "Hellfire":      {"dmg": 800,  "desc": "Api neraka"},
-            "Void Collapse": {"dmg": 2000, "desc": "Kehancuran mutlak"},
-            "Death Embrace": {"dmg": 9999, "desc": "Pelukan kematian"},
-        }
-        data = skills.get(skill_name, {"dmg": 300, "desc": "Serangan gelap"})
-        dmg = data["dmg"]
-        if target and hasattr(target, "take_damage"):
-            target.take_damage(dmg)
-        return {"damage": dmg, "desc": data["desc"]}
-
-    def take_damage(self, amount: int) -> int:
-        actual = min(self.__hp, amount)
-        self.__hp -= actual
-        if self.__hp < self.__max_hp * 0.5:
-            self.__phase = 2
-        return actual
-
-    def is_alive(self) -> bool:
-        return self.__hp > 0
-
     def update(self, dt: float) -> None:
         self._anim_timer += dt
         self._bob_offset = math.sin(self._anim_timer * 1.5) * 5
@@ -707,12 +616,18 @@ class BossNPC(NPC, BattleEntity):
         assets = _get_assets()
 
         drawn = False
-        if assets and assets.char_demon_king_idle is not None:
-            sprite = assets.char_demon_king_idle
-            # Boss selalu menghadap kiri (ke arah player)
-            if self._facing_right:
-                sprite = pygame.transform.flip(sprite, True, False)
+        # Gunakan idle_side_frames (menghadap samping ke arah player) — TIDAK di-flip
+        idle_frames = getattr(assets, "demon_king_idle_side_frames", None) if assets else None
+        if not idle_frames:
+            idle_frames = getattr(assets, "demon_king_idle_frames", None) if assets else None
+        if idle_frames:
+            frame_idx = int(self._anim_timer * 6) % len(idle_frames)
+            sprite = idle_frames[frame_idx]
+            # Asset sudah menghadap ke arah Arga — tidak perlu flip
             _blit_centered(surface, sprite, x, y)
+            drawn = True
+        elif assets and assets.char_demon_king_idle is not None:
+            _blit_centered(surface, assets.char_demon_king_idle, x, y)
             drawn = True
 
         if not drawn:
@@ -731,7 +646,7 @@ class BossNPC(NPC, BattleEntity):
         return "Hahaha... coba saja!"
 
 
-class MonsterNPC(NPC, BattleEntity):
+class MonsterNPC(NPC):
     """
     [INHERITANCE] Monster biasa (Slime, Mushroom, dll).
     """
@@ -746,25 +661,25 @@ class MonsterNPC(NPC, BattleEntity):
         super().__init__(name, x, y, (80, 160, 80))
         self.__hp = hp
         self.__max_hp = hp
+        self._anim_state = "idle"
+        self._frame_idx  = 0
+        self._anim_t     = 0.0
+        self._anim_speed = 8.0
 
     @property
     def hp(self): return self.__hp
     @property
     def max_hp(self): return self.__max_hp
 
-    def use_skill(self, skill_name: str, target) -> dict:
-        dmg = 50
-        if target and hasattr(target, "take_damage"):
-            target.take_damage(dmg)
-        return {"damage": dmg, "desc": "Serangan monster"}
+    def set_walking(self, moving: bool, direction_right: bool = None):
+        self._anim_state = "walk" if moving else "idle"
+        if direction_right is not None:
+            self._facing_right = direction_right
 
-    def take_damage(self, amount: int) -> int:
-        actual = min(self.__hp, amount)
-        self.__hp -= actual
-        return actual
-
-    def is_alive(self) -> bool:
-        return self.__hp > 0
+    def update(self, dt: float) -> None:
+        super().update(dt)
+        self._anim_t += dt
+        self._frame_idx = int(self._anim_t * self._anim_speed)
 
     def draw(self, surface: pygame.Surface) -> None:
         x = int(self._x)

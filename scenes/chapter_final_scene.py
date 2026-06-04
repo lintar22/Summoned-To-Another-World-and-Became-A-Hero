@@ -1,9 +1,19 @@
 """
 scenes/chapter_final_scene.py
 ==============================
-Chapter Final — Demon King Castle: Pre-battle, Final Boss, Pilihan, True/Bad End.
-FIX: Walk-in karakter, background tidak hilang saat transisi, fade-in setelah fadeout.
-[INHERITANCE] Scene(ABC). [POLYMORPHISM] BossNPC.use_skill() dan BossNPC.draw() berbeda.
+Chapter Final — Kastil Raja Iblis.
+
+ALUR:
+  pre_battle      → dialog dengan King Aldric di aula kerajaan
+  dungeon         → dialog jalan di lorong kastil
+  dungeon_warning → peringatan sebelum encounter Dark Knight
+  dungeon_encounter → player jalan, tekan E untuk battle Dark Knight
+                      (masuk BattleScene biasa, kembali ke sini dengan
+                       flag "battle_won_castle_dungeon" → otomatis lanjut
+                       ke boss_intro tanpa loop)
+  boss_intro      → dialog cutscene pertemuan Demon King
+  boss_intro_encounter → player jalan mendekati boss, tekan E
+                         → masuk BossBattleScene (menentukan ending)
 """
 
 import pygame
@@ -11,11 +21,13 @@ import math
 import random
 from engine.base import Scene
 from engine.colors import *
-from ui.components import DialogueBox, TransitionScreen, NarratorBox, FloatingText, BattleUI, PartyHUD
+from ui.components import DialogueBox, TransitionScreen, NarratorBox, FloatingText, PartyHUD
 
 
 class ChapterFinalScene(Scene):
-    """Final Chapter: Kastil Raja Iblis, Final Battle, Branching Ending."""
+    """Final Chapter: Kastil Raja Iblis → Dark Knight → Demon King."""
+
+    # ── Dialog pre-battle (King Aldric) ───────────────────────
 
     PRE_BATTLE_DLGS = [
         ("King Aldric", "Jadi kalian berhasil kembali."),
@@ -46,33 +58,6 @@ class ChapterFinalScene(Scene):
         ("Lyra", "Kalau kita berhenti sekarang, semua yang sudah terjadi jadi sia-sia."),
         ("Reno", "Lagipula kita sudah sejauh ini."),
         ("Reno", "Nanggung kalau pulang sekarang."),
-        ("Lyra", "Kau benar-benar tidak bisa serius, ya?"),
-        ("Reno", "Aku serius."),
-        ("Reno", "Sedikit."),
-        ("Elena", "*tertawa kecil*"),
-        ("Elena", "Takut?"),
-        ("Arga", "...Sedikit."),
-        ("Arga", "Kau juga?"),
-        ("Elena", "Jelas."),
-        ("Elena", "Aku akan lebih khawatir kalau tidak ada yang takut menghadapi Raja Iblis."),
-        ("Reno", "Nah, aku tidak takut."),
-        ("Lyra", "Karena otakmu tidak sampai ke sana."),
-        ("Reno", "Sakit juga ternyata."),
-        ("Darius", "Takut bukan masalah."),
-        ("Darius", "Yang penting kita tetap melangkah."),
-        ("Arga", "...Benar juga."),
-        ("King Aldric", "Kalau begitu, aku tidak akan menahan kalian lebih lama."),
-        ("King Aldric", "Pasukan kerajaan akan mengawal kalian sampai perbatasan utara."),
-        ("King Aldric", "Setelah itu, jalan menuju kastil sepenuhnya berada di wilayah musuh."),
-        ("Elena", "Jadi mulai dari sana, kita benar-benar sendirian."),
-        ("King Aldric", "Ya."),
-        ("King Aldric", "Aku berharap bisa mengirim lebih banyak bantuan."),
-        ("Darius", "Pasukan biasa hanya akan menjadi korban."),
-        ("Darius", "Kita semua tahu itu."),
-        ("King Aldric", "...Benar."),
-        ("Lyra", "Setidaknya dia jujur."),
-        ("Reno", "Nah, kalau begitu tidak ada lagi yang perlu dibahas."),
-        ("Reno", "Kita datang, kita menang, lalu pulang sebagai pahlawan."),
         ("Lyra", "Rencanamu selalu terdengar terlalu sederhana."),
         ("Reno", "Karena memang sederhana."),
         ("Lyra", "Tidak. Itu namanya bodoh."),
@@ -105,10 +90,10 @@ class ChapterFinalScene(Scene):
         ("SYSTEM", "Merekapun akhirnya meninggalkan aula kerajaan."),
         ("SYSTEM", "Langkah mereka bergema di lorong-lorong istana yang sunyi."),
         ("SYSTEM", "⚔ Kelompok Pahlawan memulai perjalanan menuju Kastil Raja Iblis."),
-        ("SYSTEM", "⚔ CHAPTER FINAL — DEMON KING CASTLE")
-        
-
+        ("SYSTEM", "⚔ CHAPTER FINAL — DEMON KING CASTLE"),
     ]
+
+    # ── Dialog lorong dungeon ──────────────────────────────────
 
     DUNGEON_DLGS = [
         ("Reno",   "Monster di mana-mana! Tapi kita sudah terlalu jauh untuk mundur!"),
@@ -120,6 +105,8 @@ class ChapterFinalScene(Scene):
         ("SYSTEM", "🚪 Pintu besar di ujung lorong... terbuka perlahan."),
     ]
 
+    # ── Dialog pertemuan Demon King ────────────────────────────
+
     BOSS_INTRO = [
         ("Demon King", "Jadi... inikah sang pahlawan dari dunia lain."),
         ("Demon King", "Satu manusia kecil yang berani datang ke singgasanaku."),
@@ -129,166 +116,137 @@ class ChapterFinalScene(Scene):
         ("Elena",      "Arga... aku bersamamu."),
     ]
 
-    PHASE1_DLGS = [
-        ("Reno",   "SERANG! Jangan beri dia kesempatan!"),
-        ("Lyra",   "Barrier-nya kuat. butuh terobosan besar!"),
-        ("Darius", "Aku tahan serangan kanannya! Kalian serang kiri!"),
-    ]
-
-    ELENA_HIT_DLGS = [
-        ("SYSTEM", "⚡ Raja Iblis melepaskan serangan kelap gelap ke arah Elena!"),
-        ("Elena",  "Ar... ga...!"),
-        ("SYSTEM", "💀 PILIHAN KRITIS — Apa yang kamu lakukan?"),
-    ]
-
-    TRUE_P1 = [
-        ("Arga",       "Elena!!"),
-        ("SYSTEM",     "🛡 Arga melempar dirinya menutupi Elena dengan tubuhnya!"),
-        ("Elena",      "Arga... bodoh... kenapa kau..."),
-        ("Arga",       "Aku tidak akan kehilangan siapa pun lagi. TIDAK AKAN!"),
-        ("Reno",       "SEKARANG! Dia terbuka! SERANG BERSAMA!!"),
-        ("Lyra",       "Aku buka jalannya — ASTRAL BREAK!"),
-        ("Darius",     "PEDANG UNTUK DUNIA — MAJUUUU!!"),
-        ("Arga",       "CELESTIAL OVERDRIVE!!!"),
-        ("SYSTEM",     "✨ LIMIT BREAK — Cahaya emas membelah singgasana kegelapan!"),
-        ("Demon King", "Mustahil... kekuatan manusia... tidak seharusnya sebesar..."),
-        ("SYSTEM",     "💀 Raja Iblis hancur menjadi debu cahaya."),
-    ]
-
-    BAD_P1 = [
-        ("Arga",       "Kalau dia mati sekarang — semuanya selesai! SERANG!"),
-        ("SYSTEM",     "Elena terkena serangan penuh Raja Iblis..."),
-        ("Elena",      "Ar... ga... kenapa..."),
-        ("Reno",       "ELENA!! Kau gila, Arga?!"),
-        ("Lyra",       "Tidak... tidak mungkin..."),
-        ("SYSTEM",     "Raja Iblis tertawa. Party mulai kewalahan satu per satu."),
-        ("Darius",     "...Maaf. Aku gagal melindungi."),
-        ("SYSTEM",     "Reno tumbang. Lyra kehabisan mana. Darius hancur."),
-        ("Arga",       "...Aku salah. Aku salah satu kali saja..."),
-        ("Demon King", "Hahaha... manusia tetap manusia. Haus kemenangan hingga akhir."),
-        ("SYSTEM",     "Raja Iblis menancapkan tangannya ke dada Arga."),
-    ]
+    # ──────────────────────────────────────────────────────────
 
     def __init__(self, game):
         super().__init__(game)
         self._t = 0.0
-        # phase: pre_battle → dungeon → boss_intro → phase1 → attacking_boss
-        #        → elena_hit → choice → true_end/bad_end → ending
         self._phase = "pre_battle"
         self._dlg_step = 0
-        self._dialogue = DialogueBox(game.W, game.H)
+
+        self._dialogue   = DialogueBox(game.W, game.H)
         self._transition = TransitionScreen(game.W, game.H)
         self._narrator   = NarratorBox(game.W, game.H)
-        self._battle_ui  = BattleUI(game.W, game.H)
+        self._party_hud  = PartyHUD()
         self._floats: list[FloatingText] = []
-        self._party_hud = PartyHUD()
-
-        from entities.characters import Player, PartyNPC, BossNPC, TownNPC
-        ground_y = int(game.H * 0.72)
-        self._ground_y = ground_y
-
-        # Semua karakter dimulai di luar layar (akan walkin)
-        self._player   = Player(-80, ground_y - 55)
-        self._player.before_isekai = False   # sudah dapat Holy Sword
-        self._elena    = PartyNPC("Elena",   -140, ground_y - 55)
-        self._reno     = PartyNPC("Reno",    -200, ground_y - 55)
-        self._lyra     = PartyNPC("Lyra",    -260, ground_y - 55)
-        self._darius   = PartyNPC("Darius",  -320, ground_y - 55)
-        self._boss     = BossNPC(self._game.W // 2, ground_y - 100)
-        self._king_npc = TownNPC("King Aldric", game.W // 2, ground_y - 55, (180, 150, 80))
-
-        self._boss_hp_ratio = 1.0
-        self._boss_phase    = 1
-        self._battle_round  = 0
-        self._slash_timer   = 0.0
-        self._slash_active  = False
-        self._shake_timer   = 0.0
-        self._shake_x       = 0
-        self._particles: list[dict] = []
-        self._ending_route  = ""
-        self._ending_timer  = 0.0
 
         self._pending_phase = ""
         self._waiting_fade  = False
 
+        from entities.characters import Player, PartyNPC, BossNPC, KingdomNPC
+        ground_y = int(game.H * 0.82)
+        self._ground_y = ground_y
+
+        self._player   = Player(-80, ground_y - 55)
+        self._player.before_isekai = False
+        self._elena    = PartyNPC("Elena",   -140, ground_y - 55)
+        self._reno     = PartyNPC("Reno",    -200, ground_y - 55)
+        self._lyra     = PartyNPC("Lyra",    -260, ground_y - 55)
+        self._darius   = PartyNPC("Darius",  -320, ground_y - 55)
+        self._boss     = BossNPC(game.W // 2, ground_y - 100)
+
+        # NPC Kerajaan di sisi kanan layar (pre_battle — Malam Sebelum Perang)
+        # Party walkin ke x: 200-520, jadi NPC kerajaan ditempatkan mulai x=750
+        #   King Aldric : x=750, Mage : x=900, Knight : x=1060
+        self._king_npc   = KingdomNPC("King Aldric", 750,  ground_y - 55, (180, 150, 80))
+        self._mage_npc   = KingdomNPC("Mage",        900,  ground_y - 55, (100, 120, 180))
+        self._knight_npc = KingdomNPC("Knight",      1060, ground_y - 55, (120, 140, 120))
+
+        # Semua NPC kerajaan menghadap kiri (ke arah party)
+        self._king_npc._facing_right   = False
+        self._mage_npc._facing_right   = False
+        self._knight_npc._facing_right = False
+
+        # Animasi idle hardcode NPC kerajaan (loop seperti di chapter1)
+        self._npc_anim_timer   = 0.0
+        self._npc_anim_speed   = 0.18   # detik per frame
+        self._npc_king_frame   = 0
+        self._npc_mage_frame   = 0
+        self._npc_knight_frame = 0
+
+        # Dungeon encounter state
+        self._dungeon_enemies: list = []
+        self._dungeon_walkin_active        = False
+        self._dungeon_walkin_done          = False
+        self._dungeon_enemies_interactable = False
+        self._dungeon_warn_step            = 0
+
         try:
-            self._font_ch  = pygame.font.SysFont("Georgia", 36, bold=True)
-            self._font_end = pygame.font.SysFont("Georgia", 46, bold=True)
-            self._font_sub = pygame.font.SysFont("Georgia", 22, italic=True)
-            self._font_ui  = pygame.font.SysFont("Consolas", 15)
+            self._font_ui = pygame.font.SysFont("Consolas", 15)
         except Exception:
-            self._font_ch  = pygame.font.Font(None, 40)
-            self._font_end = pygame.font.Font(None, 50)
-            self._font_sub = pygame.font.Font(None, 26)
-            self._font_ui  = pygame.font.Font(None, 18)
+            self._font_ui = pygame.font.Font(None, 18)
+
+    # ── Lifecycle ─────────────────────────────────────────────
 
     def on_enter(self) -> None:
         self._transition.fade_in(speed=150)
         self._narrator.show(["Chapter Final", "Kastil Raja Iblis"], 3.0)
+
+        # ── Cek apakah baru kembali dari dungeon battle ──
+        # Kalau flag castle_dungeon sudah di-set, skip langsung ke boss_intro
+        if self._game.flags.get("battle_won_castle_dungeon"):
+            self._phase = "boss_intro"
+            self._dlg_step = 0
+            self._transition.fade_in(speed=160)
+            self._narrator.show(["⚔ FINAL BOSS", "DEMON KING"], 2.5)
+            self._dialogue.show(self.BOSS_INTRO[0][1], self.BOSS_INTRO[0][0])
+            try: self._game.assets.play("damage")
+            except Exception: pass
+            for ch in (self._elena, self._reno, self._lyra, self._darius):
+                ch.disable_follow()
+            for ch, tx in [(self._player, 160), (self._elena, 240),
+                           (self._reno, 320), (self._lyra, 400), (self._darius, 480)]:
+                ch._x = -80
+            self.start_walkin([
+                (self._player, 160), (self._elena, 240),
+                (self._reno, 320), (self._lyra, 400), (self._darius, 480),
+            ])
+            return
+
+        # Normal: mulai dari pre_battle
         self._dialogue.show(self.PRE_BATTLE_DLGS[0][1], self.PRE_BATTLE_DLGS[0][0])
-        # Setup follow target & jarak untuk semua party
-        # Formasi: Lyra-Elena-Arga-Reno-Darius
         self._elena.follow(self._player);  self._elena.follow_distance  = -80
         self._reno.follow(self._player);   self._reno.follow_distance   =  80
         self._lyra.follow(self._player);   self._lyra.follow_distance   = -160
         self._darius.follow(self._player); self._darius.follow_distance =  160
-        # Matikan follow dulu — walkin yang kontrol posisi
         for ch in (self._elena, self._reno, self._lyra, self._darius):
             ch.disable_follow()
-        # Walk-in semua party
-        # Walkin semua dari kiri seperti chapter 3, formasi menyesuaikan setelah itu
         self.start_walkin([
-            (self._player,  200),
-            (self._elena,   280),
-            (self._reno,    360),
-            (self._lyra,    440),
-            (self._darius,  520),
+            (self._player,  200), (self._elena, 280),
+            (self._reno,    360), (self._lyra,  440), (self._darius, 520),
         ])
 
-    def _go_to_phase(self, new_phase: str):
-        self._pending_phase = new_phase
-        self._waiting_fade = True
-        self._transition.fade_out(speed=240)
+    def on_exit(self) -> None:
+        pass
+
+    # ── Event ─────────────────────────────────────────────────
 
     def handle_event(self, event: pygame.event.Event) -> None:
-        if event.type == pygame.KEYDOWN:
-            key = event.key
-            if key in (pygame.K_UP, pygame.K_w):
-                if self._dialogue.showing_choices:
-                    self._dialogue.navigate_choice(-1)
-            elif key in (pygame.K_DOWN, pygame.K_s):
-                if self._dialogue.showing_choices:
-                    self._dialogue.navigate_choice(1)
-            elif key == pygame.K_e:
-                # Interaksi dengan boss atau dungeon enemies
-                if self._phase == "dungeon_encounter":
-                    self._try_start_dungeon_battle()
-                elif self._phase == "boss_intro_encounter":
-                    self._enter_boss_battle()
-            elif key in (pygame.K_SPACE, pygame.K_RETURN, pygame.K_z):
-                if self._walkin_active or self._waiting_fade:
-                    return
-                if self._phase in ("dungeon_encounter", "boss_intro_encounter"):
-                    return  # Harus pakai E
-                self._advance()
+        if event.type != pygame.KEYDOWN:
+            return
+        key = event.key
+
+        if key in (pygame.K_UP, pygame.K_w):
+            if self._dialogue.showing_choices:
+                self._dialogue.navigate_choice(-1)
+        elif key in (pygame.K_DOWN, pygame.K_s):
+            if self._dialogue.showing_choices:
+                self._dialogue.navigate_choice(1)
+        elif key == pygame.K_e:
+            if self._phase == "dungeon_encounter":
+                self._try_start_dungeon_battle()
+            elif self._phase == "boss_intro_encounter":
+                self._enter_boss_battle()
+        elif key in (pygame.K_SPACE, pygame.K_RETURN, pygame.K_z):
+            if self._walkin_active or self._waiting_fade:
+                return
+            if self._phase in ("dungeon_encounter", "boss_intro_encounter"):
+                return  # harus pakai E
+            self._advance()
 
     def _advance(self):
-        self._game.assets.play("cursor")
-
-        # Choice handler
-        if self._dialogue.showing_choices:
-            choice = self._dialogue.confirm_choice()
-            self._dialogue.hide()
-            self._ending_route = "true" if choice == 0 else "bad"
-            self._phase = "true_end" if choice == 0 else "bad_end"
-            self._dlg_step = 0
-            dlgs = self.TRUE_P1 if self._phase == "true_end" else self.BAD_P1
-            self._dialogue.show(dlgs[0][1], dlgs[0][0])
-            if choice == 0:
-                self._game.assets.play("magic")
-            else:
-                self._game.assets.play("damage")
-            return
+        try: self._game.assets.play("cursor")
+        except Exception: pass
 
         if not self._dialogue.is_finished:
             self._dialogue.skip()
@@ -300,7 +258,8 @@ class ChapterFinalScene(Scene):
                 spk, txt = self.PRE_BATTLE_DLGS[self._dlg_step]
                 self._dialogue.show(txt, spk)
                 if self._dlg_step == 11:
-                    self._game.assets.play("fanfare")
+                    try: self._game.assets.play("fanfare")
+                    except Exception: pass
             else:
                 self._dlg_step = 0
                 self._go_to_phase("dungeon")
@@ -311,22 +270,22 @@ class ChapterFinalScene(Scene):
                 spk, txt = self.DUNGEON_DLGS[self._dlg_step]
                 self._dialogue.show(txt, spk)
             else:
-                # Semua dialog dungeon selesai → tampilkan warning Dark Knight
                 self._phase = "dungeon_warning"
                 self._dungeon_warn_step = 0
-                self._dialogue.show("Monster-monster menghalangi jalan ke singgasana!", "Reno")
-                self._game.assets.play("damage")
+                self._dialogue.show("Monster-monster menghalangi jalan ke ruang Raja Iblis!", "Reno")
+                try: self._game.assets.play("damage")
+                except Exception: pass
 
         elif self._phase == "dungeon_warning":
-            self._dungeon_warn_step = getattr(self, '_dungeon_warn_step', 0) + 1
-            _dungeon_warns = [
-                ("Reno",   "Monster-monster menghalangi jalan ke singgasana!"),
+            _warns = [
+                ("Reno",   "Monster-monster menghalangi jalan ke ruang Raja Iblis!"),
                 ("Lyra",   "Ada banyak monster. Hati-Hati!"),
                 ("Darius", "Biarkan aku tahan satu. Kalian tangani yang lain!"),
-                ("SYSTEM", "⚠ Monster muncul dari kegelapan lorong!"),
+                ("SYSTEM", "Monster muncul dari kegelapan lorong!"),
             ]
-            if self._dungeon_warn_step < len(_dungeon_warns):
-                spk, txt = _dungeon_warns[self._dungeon_warn_step]
+            self._dungeon_warn_step += 1
+            if self._dungeon_warn_step < len(_warns):
+                spk, txt = _warns[self._dungeon_warn_step]
                 self._dialogue.show(txt, spk)
             else:
                 self._dialogue.hide()
@@ -338,274 +297,111 @@ class ChapterFinalScene(Scene):
                 spk, txt = self.BOSS_INTRO[self._dlg_step]
                 self._dialogue.show(txt, spk)
             else:
-                # Semua dialog boss intro selesai → player harus interaksi dengan boss
                 self._phase = "boss_intro_encounter"
                 self._dialogue.hide()
                 self._narrator.show(["⚔ Dekati Demon King dan tekan  E  untuk memulai pertempuran!"], 2.5)
-                self._game.assets.play("damage")
+                try: self._game.assets.play("damage")
+                except Exception: pass
 
-        elif self._phase == "boss_intro_encounter":
-            pass  # Hanya bisa dimulai lewat tekan E (handle_event)
+    # ── Phase transition ──────────────────────────────────────
 
-        elif self._phase == "phase1":
-            self._dlg_step += 1
-            if self._dlg_step < len(self.PHASE1_DLGS):
-                spk, txt = self.PHASE1_DLGS[self._dlg_step]
-                self._dialogue.show(txt, spk)
-                if self._dlg_step == 3:  # Divine Slash
-                    self._slash_active = True
-                    self._slash_timer  = 0.0
-                    self._shake_timer  = 0.4
-                    self._game.assets.play("slash")
-                    self._floats.append(FloatingText("DIVINE SLASH!", self._game.W // 2, 160, GOLD_LIGHT))
-            else:
-                self._do_boss_attack()
+    def _go_to_phase(self, new_phase: str):
+        self._pending_phase = new_phase
+        self._waiting_fade  = True
+        self._transition.fade_out(speed=240)
 
-        elif self._phase == "attacking_boss":
-            self._battle_round += 1
-            if self._battle_round < 4:
-                dmg = random.randint(8000, 14000)
-                self._boss.take_damage(dmg)
-                self._boss_hp_ratio = self._boss.hp / self._boss.max_hp
-                self._spawn_particles(self._boss.x, self._boss.y)
-                self._floats.append(FloatingText(f"-{dmg}", self._boss.x, self._boss.y - 40, GOLD_LIGHT))
-                self._slash_active = True
-                self._slash_timer  = 0.0
-                self._shake_timer  = 0.3
-                self._game.assets.play("slash")
-                skills = ["Divine Slash", "Celestial Flame", "Holy Barrier", "Time Acceleration"]
-                skill = skills[self._battle_round % len(skills)]
-                self._dialogue.show(f"[{skill}] — Serang bersama!", "Arga")
-                if self._boss_hp_ratio < 0.5 and self._boss_phase == 1:
-                    self._boss_phase = 2
-                    self._narrator.show(["⚠ Boss masuk Phase 2!", "Kekuatannya berlipat ganda!"], 2.0)
-                    self._game.assets.play("damage")
-            else:
-                # Elena terkena
-                self._phase = "elena_hit"
-                self._dlg_step = 0
-                self._dialogue.show(self.ELENA_HIT_DLGS[0][1], self.ELENA_HIT_DLGS[0][0])
-                self._elena.take_damage(4000)
-                self._elena.emotion = "sad"
-                self._game.assets.play("damage")
-                self._shake_timer = 0.6
-
-        elif self._phase == "elena_hit":
-            self._dlg_step += 1
-            if self._dlg_step < len(self.ELENA_HIT_DLGS) - 1:
-                spk, txt = self.ELENA_HIT_DLGS[self._dlg_step]
-                self._dialogue.show(txt, spk)
-            else:
-                self._dialogue.show(
-                    "Elena terkena serangan keras! Apa yang kamu lakukan?",
-                    "SYSTEM",
-                    choices=[
-                        "Lindungi Elena Segera!",
-                        "Terus Serang Raja Iblis!"
-                    ]
-                )
-
-        elif self._phase in ("true_end", "bad_end"):
-            dlgs = self.TRUE_P1 if self._phase == "true_end" else self.BAD_P1
-            self._dlg_step += 1
-            if self._dlg_step < len(dlgs):
-                spk, txt = dlgs[self._dlg_step]
-                self._dialogue.show(txt, spk)
-                if self._phase == "true_end":
-                    if self._dlg_step == 7:  # CELESTIAL OVERDRIVE
-                        self._slash_active = True
-                        self._slash_timer  = 0.0
-                        self._game.assets.play("magic")
-                        self._game.assets.play("fanfare")
-                        self._spawn_big_particles()
-                    elif self._dlg_step == 10:  # Boss kalah
-                        self._boss.take_damage(999999)
-                        self._boss_hp_ratio = 0
-                        self._game.assets.play("flash")
-                else:  # bad_end
-                    if self._dlg_step == 7:
-                        self._darius.take_damage(99999)
-                    elif self._dlg_step == 10:
-                        self._game.assets.play("damage")
-            else:
-                self._phase = "ending"
-                self._ending_timer = 0.0
-                self._transition.fade_out(color=(0, 0, 0), speed=130)
-
-        elif self._phase == "ending":
-            pass
-
-    def _do_boss_attack(self):
-        self._phase = "attacking_boss"
-        self._dlg_step = 0
-        dmg = random.randint(6000, 10000)
-        self._boss.take_damage(dmg)
-        self._boss_hp_ratio = self._boss.hp / self._boss.max_hp
-        self._slash_active = True
-        self._slash_timer  = 0.0
-        self._shake_timer  = 0.35
-        self._game.assets.play("slash")
-        self._floats.append(FloatingText(f"-{dmg}", self._boss.x, self._boss.y - 40, GOLD_LIGHT))
-        self._dialogue.show("Divine Slash! Pertarungan dimulai!", "Arga")
-
-    # ── Dungeon & Boss Encounter (Turn-Based) ─────────────────────────────────
+    # ── Dungeon encounter ─────────────────────────────────────
 
     def _spawn_dungeon_enemies(self):
-        """Spawn 2 Dark Knight dari kanan — dungeon encounter walk-in."""
         from entities.characters import MonsterNPC
-        ground_y = self._ground_y
         screen_w = self._game.W
-        self._dungeon_enemies: list = []
         configs = [
-            ("Dark Knight", float(screen_w + 80),  float(screen_w - 180), 220),
-            ("Dark Knight", float(screen_w + 180), float(screen_w - 300), 220),
+            ("Minotaur", float(screen_w + 80),  float(screen_w - 180), 220),
+            ("Minotaur", float(screen_w + 180), float(screen_w - 300), 220),
         ]
         for name, start_x, target_x, hp in configs:
-            m = MonsterNPC(name, start_x, ground_y - 45, hp=hp)
+            m = MonsterNPC(name, start_x, self._ground_y - 45, hp=hp)
             m._target_x = target_x
             self._dungeon_enemies.append(m)
         self._dungeon_walkin_active        = True
         self._dungeon_walkin_done          = False
         self._dungeon_enemies_interactable = False
         self._phase = "dungeon_encounter"
-        self._narrator.show(["⚠ Dark Knight menghalangi!", "Dekati dan tekan  E  untuk bertarung!"], 2.5)
+        self._narrator.show(["Minotaur menghalangi!", "Dekati dan tekan  E  untuk bertarung!"], 2.5)
 
     def _try_start_dungeon_battle(self):
-        """Cek jarak player ke Dark Knight — interaksi kelompok."""
-        if not getattr(self, '_dungeon_enemies_interactable', False):
+        if not self._dungeon_enemies_interactable:
             return
         px = self._player._x
-        for enemy in getattr(self, '_dungeon_enemies', []):
+        for enemy in self._dungeon_enemies:
             if abs(enemy.x - px) < 130:
                 self._enter_dungeon_battle()
                 return
         self._narrator.show(["Dekati Dark Knight terlebih dahulu!"], 1.0)
 
     def _enter_dungeon_battle(self):
-        """
-        [HINT] Masuk turn-based battle untuk encounter Dark Knight di dungeon.
-        Hapus fallback NotImplementedError setelah BattleScene diimplementasi.
-        """
-        try:
-            from battle.battle_scene import start_battle_scene, ENCOUNTER_CASTLE_DUNGEON
-            start_battle_scene(
-                game=self._game,
-                enemies=ENCOUNTER_CASTLE_DUNGEON,
-                return_scene_class=self.__class__,
-                context={"chapter": "final", "encounter_id": "castle_dungeon"},
-            )
-        except NotImplementedError:
-            # [SEMENTARA] Simulasi menang — lanjut ke boss intro
-            self._narrator.show(
-                ["[BATTLE SCENE BELUM ADA]", "Anggap menang — lanjut ke boss..."], 2.5
-            )
-            setattr(self, '_dungeon_enemies', [])
-            self._dungeon_enemies_interactable = False
-            self._dlg_step = 0
-            self._go_to_phase("boss_intro")
+        from battle.battle_scene import start_battle_scene, ENCOUNTER_CASTLE_DUNGEON
+        start_battle_scene(
+            game=self._game,
+            enemies=ENCOUNTER_CASTLE_DUNGEON,
+            return_scene_class=self.__class__,
+            context={"chapter": "final", "encounter_id": "castle_dungeon"},
+        )
+
+    # ── Boss encounter ────────────────────────────────────────
 
     def _enter_boss_battle(self):
-        """
-        [HINT] Masuk turn-based battle untuk Demon King (boss final).
-        Interaksi player dengan Boss NPC → masuk battle.
-        Hapus fallback NotImplementedError setelah BattleScene diimplementasi.
-        """
-        try:
-            from battle.battle_scene import start_battle_scene, ENCOUNTER_DEMON_KING
-            start_battle_scene(
-                game=self._game,
-                enemies=ENCOUNTER_DEMON_KING,
-                return_scene_class=self.__class__,
-                context={"chapter": "final", "encounter_id": "demon_king", "is_boss": True},
-            )
-        except NotImplementedError:
-            # [SEMENTARA] Simulasi — lanjut ke phase pilihan kritis
-            self._narrator.show(
-                ["[BATTLE SCENE BELUM ADA]", "Langsung ke pilihan kritis..."], 2.0
-            )
-            self._phase = "elena_hit"
-            self._dlg_step = 0
-            self._dialogue.show(self.ELENA_HIT_DLGS[0][1], self.ELENA_HIT_DLGS[0][0])
-            self._game.assets.play("damage")
+        from battle.boss_battle_scene import start_boss_battle
+        start_boss_battle(self._game)
 
-    def _spawn_particles(self, cx, cy):
-        for _ in range(20):
-            self._particles.append({
-                'x': cx, 'y': cy,
-                'vx': random.uniform(-180, 180),
-                'vy': random.uniform(-200, 50),
-                'life': random.uniform(0.4, 1.2),
-                'max_life': 1.2,
-                'size': random.randint(3, 7),
-                'col': random.choice([(255, 220, 80), (255, 160, 40), (255, 240, 200)]),
-            })
-
-    def _spawn_big_particles(self):
-        for _ in range(60):
-            self._particles.append({
-                'x': random.randint(0, self._game.W),
-                'y': random.randint(0, self._game.H),
-                'vx': random.uniform(-100, 100),
-                'vy': random.uniform(-300, -50),
-                'life': random.uniform(0.8, 2.0),
-                'max_life': 2.0,
-                'size': random.randint(4, 12),
-                'col': random.choice([(255, 240, 120), (200, 240, 255), (255, 200, 80)]),
-            })
+    # ── Update ────────────────────────────────────────────────
 
     def update(self, dt: float) -> None:
         self._t += dt
         self._transition.update(dt)
         self._dialogue.update(dt)
         self._narrator.update(dt)
-
         self.update_walkin(dt)
 
-        # Animasi walk selama walkin aktif (masuk scene)
         if self._walkin_active:
             self._player.set_walking(True, True)
 
-        # Handle fade-out done → switch phase
+        # Handle fade-out selesai → ganti phase
         if self._waiting_fade and self._transition.done:
-            self._waiting_fade = False
-            self._phase = self._pending_phase
+            self._waiting_fade  = False
+            self._phase         = self._pending_phase
             self._pending_phase = ""
-            self._dlg_step = 0
+            self._dlg_step      = 0
 
             if self._phase == "dungeon":
                 self._transition.fade_in(speed=200)
                 self._narrator.show(["Lorong Kastil Raja Iblis", "Menuju Singgasana Kegelapan..."], 2.5)
                 self._dialogue.show(self.DUNGEON_DLGS[0][1], self.DUNGEON_DLGS[0][0])
-                # Party jalan masuk dari kiri ke kanan
                 for ch in (self._elena, self._reno, self._lyra, self._darius):
                     ch.disable_follow()
-                for ch, tx in [(self._player, 180), (self._elena, 270),
-                               (self._reno, 360), (self._lyra, 450), (self._darius, 540)]:
+                for ch in (self._player, self._elena, self._reno, self._lyra, self._darius):
                     ch._x = -80
+                # Paksa idle menghadap depan di lorong (bukan idle samping)
+                self._player.use_front_idle = True
                 self.start_walkin([
-                    (self._player, 180),
-                    (self._elena,  270),
-                    (self._reno,   360),
-                    (self._lyra,   450),
-                    (self._darius, 540),
+                    (self._player, 180), (self._elena,  270),
+                    (self._reno,   360), (self._lyra,   450), (self._darius, 540),
                 ])
+
             elif self._phase == "boss_intro":
+                self._player.use_front_idle = False  # reset ke side idle saat boss intro
                 self._transition.fade_in(speed=160)
                 self._narrator.show(["⚔ FINAL BOSS", "DEMON KING"], 2.5)
                 self._dialogue.show(self.BOSS_INTRO[0][1], self.BOSS_INTRO[0][0])
-                self._game.assets.play("damage")
-                # Party masuk dari kiri, boss sudah di tengah-kanan
+                try: self._game.assets.play("damage")
+                except Exception: pass
                 for ch in (self._elena, self._reno, self._lyra, self._darius):
                     ch.disable_follow()
-                for ch, tx in [(self._player, 160), (self._elena, 240),
-                               (self._reno, 320), (self._lyra, 400), (self._darius, 480)]:
+                for ch in (self._player, self._elena, self._reno, self._lyra, self._darius):
                     ch._x = -80
                 self.start_walkin([
-                    (self._player, 160),
-                    (self._elena,  240),
-                    (self._reno,   320),
-                    (self._lyra,   400),
-                    (self._darius, 480),
+                    (self._player, 160), (self._elena, 240),
+                    (self._reno,   320), (self._lyra,  400), (self._darius, 480),
                 ])
 
         # Update karakter
@@ -617,46 +413,57 @@ class ChapterFinalScene(Scene):
         if self._phase not in ("pre_battle", "dungeon", "dungeon_warning", "dungeon_encounter"):
             self._boss.update(dt)
 
-        # Setelah walkin selesai → aktifkan follow semua party
+        # Animasi idle hardcode NPC kerajaan di pre_battle (loop King, Mage, Knight)
+        if self._phase == "pre_battle":
+            self._npc_anim_timer += dt
+            if self._npc_anim_timer >= self._npc_anim_speed:
+                self._npc_anim_timer = 0.0
+                assets = self._game.assets
+                king_f  = getattr(assets, "king_aldric_idle_frames", [])
+                mage_f  = getattr(assets, "mage_idle_frames",        [])
+                kngt_f  = getattr(assets, "knight_idle_frames",      [])
+                if king_f:  self._npc_king_frame   = (self._npc_king_frame   + 1) % len(king_f)
+                if mage_f:  self._npc_mage_frame   = (self._npc_mage_frame   + 1) % len(mage_f)
+                if kngt_f:  self._npc_knight_frame = (self._npc_knight_frame + 1) % len(kngt_f)
+
+        # Aktifkan follow setelah walkin selesai
         if not self._walkin_active:
             for ch in (self._elena, self._reno, self._lyra, self._darius):
                 if not ch._follow_enabled:
                     ch.enable_follow()
 
         # Walk-in dungeon enemies dari kanan
-        if getattr(self, '_dungeon_walkin_active', False):
+        if self._dungeon_walkin_active:
             all_arrived = True
-            for enemy in getattr(self, '_dungeon_enemies', []):
+            for enemy in self._dungeon_enemies:
                 tx = getattr(enemy, '_target_x', enemy.x)
                 if enemy.x > tx + 2:
                     enemy.x = max(tx, enemy.x - 220 * dt)
+                    if hasattr(enemy, 'set_walking'):
+                        enemy.set_walking(True, True)
                     all_arrived = False
                 else:
                     enemy.x = tx
-            if all_arrived and not getattr(self, '_dungeon_walkin_done', True):
+                    if hasattr(enemy, 'set_walking'):
+                        enemy.set_walking(False)
+            if all_arrived and not self._dungeon_walkin_done:
                 self._dungeon_walkin_done          = True
                 self._dungeon_walkin_active        = False
                 self._dungeon_enemies_interactable = True
 
-        # Update dungeon enemies
-        for enemy in getattr(self, '_dungeon_enemies', []):
+        for enemy in self._dungeon_enemies:
             enemy.update(dt)
 
-        # Gerakan player saat dungeon_encounter dan boss_intro_encounter
+        # Kontrol player saat encounter (bisa jalan)
         if self._phase in ("dungeon_encounter", "boss_intro_encounter") and not self._walkin_active:
             keys = pygame.key.get_pressed()
-            dx = 0
             moving_left  = keys[pygame.K_LEFT]  or keys[pygame.K_a]
             moving_right = keys[pygame.K_RIGHT] or keys[pygame.K_d]
-            if moving_left:
-                dx = -160 * dt
-            if moving_right:
-                dx = 160 * dt
+            dx = 0
+            if moving_left:  dx = -160 * dt
+            if moving_right: dx =  160 * dt
             if dx != 0:
                 self._player._x = max(60, min(self._game.W - 60, self._player._x + dx))
-                # Tidak perlu hardcode posisi party — follow system yang handle
-
-            # Animasi walk + flip arah
             if moving_left and not moving_right:
                 self._player.set_walking(True, False)
             elif moving_right and not moving_left:
@@ -666,85 +473,94 @@ class ChapterFinalScene(Scene):
         elif not self._walkin_active:
             self._player.set_walking(False)
 
-        # boss_intro → setelah semua dialog, boss interactable
-        if self._phase == "boss_intro":
-            pass  # Dihandle di _advance; setelah dialog habis → boss_intro_encounter
-
-        if self._slash_active:
-            self._slash_timer += dt
-            if self._slash_timer > 0.6:
-                self._slash_active = False
-
-        if self._shake_timer > 0:
-            self._shake_timer -= dt
-            self._shake_x = random.randint(-6, 6) if self._shake_timer > 0 else 0
-        else:
-            self._shake_x = 0
-
-        for p in self._particles:
-            p['x'] += p['vx'] * dt
-            p['y'] += p['vy'] * dt
-            p['vy'] += 120 * dt
-            p['life'] -= dt
-        self._particles = [p for p in self._particles if p['life'] > 0]
-
         for ft in self._floats:
             ft.update(dt)
         self._floats = [f for f in self._floats if f.alive]
 
-        if self._phase == "ending":
-            self._ending_timer += dt
-            if self._ending_timer > 2.2 and self._transition.done:
-                if self._ending_route == "true":
-                    from scenes.true_end_scene import TrueEndScene
-                    self._game.replace_scene(TrueEndScene(self._game))
-                else:
-                    from scenes.bad_end_scene import BadEndScene
-                    self._game.replace_scene(BadEndScene(self._game))
+    # ── Draw helpers ─────────────────────────────────────────────
+
+    def _draw_npc_frame(self, surface, frames_attr, frame_idx, x, y,
+                        scale=1.6, facing_right=True):
+        """Gambar NPC dari frame list di assets, normalisasi ke 96px (identik dengan ch1)."""
+        SPRITE_BASE_H = 96
+        frames = getattr(self._game.assets, frames_attr, [])
+        if not frames:
+            return
+        img = frames[frame_idx % len(frames)]
+        orig_w, orig_h = img.get_size()
+        if orig_h <= 0:
+            return
+        norm_w = int(orig_w * SPRITE_BASE_H / orig_h)
+        normalized = pygame.transform.scale(img, (norm_w, SPRITE_BASE_H))
+        new_w = int(norm_w * scale)
+        new_h = int(SPRITE_BASE_H * scale)
+        scaled = pygame.transform.scale(normalized, (new_w, new_h))
+        if not facing_right:
+            scaled = pygame.transform.flip(scaled, True, False)
+        surface.blit(scaled, (x - new_w // 2, y - new_h))
+
+    # ── Draw ──────────────────────────────────────────────────
 
     def draw(self, surface: pygame.Surface) -> None:
-        sx = self._shake_x
-
-        # Background berdasarkan phase — SELALU tampilkan background, tidak pernah hitam
+        # Background
         if self._phase == "pre_battle":
-            surface.blit(self._game.assets.bg_throne_room, (sx, 0))
+            bg_pre = (getattr(self._game.assets, "bg_belairung", None)
+                      or getattr(self._game.assets, "bg_throne_room", None))
+            if bg_pre:
+                surface.blit(bg_pre, (0, 0))
+            else:
+                surface.fill((30, 20, 50))
         elif self._phase in ("dungeon", "dungeon_warning", "dungeon_encounter"):
-            surface.blit(self._game.assets.bg_castle_ext, (sx, 0))
-        elif self._phase == "ending":
-            surface.blit(self._game.assets.bg_castle_int, (sx, 0))
+            bg_dng = getattr(self._game.assets, "bg_castle_ext", None)
+            if bg_dng:
+                surface.blit(bg_dng, (0, 0))
+            else:
+                surface.fill((20, 15, 30))
         else:
-            # boss_intro, boss_intro_encounter, phase1, attacking_boss, elena_hit, true_end, bad_end
-            surface.blit(self._game.assets.bg_castle_int, (sx, 0))
+            # boss_intro, boss_intro_encounter → pakai bg ruang boss
+            bg_boss = (getattr(self._game.assets, "bg_ruang_boss", None)
+                       or getattr(self._game.assets, "bg_castle_int", None))
+            if bg_boss:
+                surface.blit(bg_boss, (0, 0))
+            else:
+                surface.fill((15, 5, 25))
 
-        # Pre-battle: King di tengah, party di kiri
+        # Pre-battle: NPC Kerajaan (animasi hardcode) + party
         if self._phase == "pre_battle":
-            self._king_npc.draw(surface)
-            self._player.draw(surface)
-            self._elena.draw(surface)
-            self._reno.draw(surface)
-            self._lyra.draw(surface)
-            self._darius.draw(surface)
+            # Knight paling kanan → gambar duluan agar King di depan
+            self._draw_npc_frame(surface, "knight_idle_frames",      self._npc_knight_frame,
+                                 int(self._knight_npc._x), int(self._knight_npc._y),
+                                 facing_right=self._knight_npc._facing_right)
+            self._draw_npc_frame(surface, "mage_idle_frames",        self._npc_mage_frame,
+                                 int(self._mage_npc._x),   int(self._mage_npc._y),
+                                 facing_right=self._mage_npc._facing_right)
+            self._draw_npc_frame(surface, "king_aldric_idle_frames", self._npc_king_frame,
+                                 int(self._king_npc._x),   int(self._king_npc._y),
+                                 facing_right=self._king_npc._facing_right)
+            # Party (digambar setelah NPC agar tampak di depan)
+            self.draw_char_scaled(surface, self._darius, 1.6)
+            self.draw_char_scaled(surface, self._lyra,   1.6)
+            self.draw_char_scaled(surface, self._reno,   1.6)
+            self.draw_char_scaled(surface, self._elena,  1.6)
+            self.draw_char_scaled(surface, self._player, 1.6)
 
-        # Dungeon walk + encounter
+        # Dungeon
         elif self._phase in ("dungeon", "dungeon_warning", "dungeon_encounter"):
-            self._player.draw(surface)
-            self._elena.draw(surface)
-            self._reno.draw(surface)
-            self._lyra.draw(surface)
-            self._darius.draw(surface)
-            # Gambar Dark Knight enemies
-            for enemy in getattr(self, '_dungeon_enemies', []):
-                enemy.draw(surface)
-                if getattr(self, '_dungeon_enemies_interactable', False):
-                    if abs(enemy.x - self._player._x) < 130:
-                        try:
-                            f = pygame.font.SysFont("Consolas", 13, bold=True)
-                            t = f.render("[E] Bertarung!", True, DAMAGE_RED)
-                            surface.blit(t, (int(enemy.x) - t.get_width() // 2, int(enemy.y) - 70))
-                        except Exception:
-                            pass
-            # Hint encounter
-            if self._phase == "dungeon_encounter" and getattr(self, '_dungeon_enemies_interactable', False):
+            self.draw_char_scaled(surface, self._player, 1.6)
+            self.draw_char_scaled(surface, self._elena,  1.6)
+            self.draw_char_scaled(surface, self._reno,   1.6)
+            self.draw_char_scaled(surface, self._lyra,   1.6)
+            self.draw_char_scaled(surface, self._darius, 1.6)
+            for enemy in self._dungeon_enemies:
+                self.draw_char_scaled(surface, enemy, 1.7)
+                if self._dungeon_enemies_interactable and abs(enemy.x - self._player._x) < 130:
+                    try:
+                        f = pygame.font.SysFont("Consolas", 13, bold=True)
+                        t = f.render("[E] Bertarung!", True, DAMAGE_RED)
+                        surface.blit(t, (int(enemy.x) - t.get_width() // 2, int(enemy.y) - 70))
+                    except Exception:
+                        pass
+            if self._phase == "dungeon_encounter" and self._dungeon_enemies_interactable:
                 try:
                     f = pygame.font.SysFont("Consolas", 14)
                     h = f.render("← → Jalan  |  E Bertarung saat dekat Dark Knight!", True, UI_ACCENT)
@@ -752,16 +568,15 @@ class ChapterFinalScene(Scene):
                 except Exception:
                     pass
 
-        # Boss fight phases — boss_intro (dialog) dan boss_intro_encounter (interaktif)
-        elif self._phase not in ("ending",):
-            self._boss.draw(surface)
-            self._player.draw(surface)
-            self._elena.draw(surface)
-            self._reno.draw(surface)
-            self._lyra.draw(surface)
-            self._darius.draw(surface)
+        # Boss intro / encounter
+        else:
+            self.draw_char_scaled(surface, self._boss,   2.2)
+            self.draw_char_scaled(surface, self._player, 1.6)
+            self.draw_char_scaled(surface, self._elena,  1.6)
+            self.draw_char_scaled(surface, self._reno,   1.6)
+            self.draw_char_scaled(surface, self._lyra,   1.6)
+            self.draw_char_scaled(surface, self._darius, 1.6)
 
-            # Hint interaksi boss saat boss_intro_encounter
             if self._phase == "boss_intro_encounter":
                 boss_dist = abs(self._boss.x - self._player._x)
                 if boss_dist < 150:
@@ -778,57 +593,11 @@ class ChapterFinalScene(Scene):
                 except Exception:
                     pass
 
-            # Boss HP bar
-            self._battle_ui.draw_enemy_bar(surface, self._boss)
-            self._battle_ui.draw_player_hud(surface, self._player)
-
-            # Slash efek besar
-            if self._slash_active:
-                alpha = int(255 * max(0, 1 - self._slash_timer / 0.6))
-                s = pygame.Surface((self._game.W, self._game.H), pygame.SRCALPHA)
-                pygame.draw.polygon(s, (255, 240, 100, alpha), [
-                    (80,  self._game.H - 60),
-                    (self._boss.x - 30, self._boss.y - 70),
-                    (self._boss.x + 30, self._boss.y - 70),
-                    (130, self._game.H - 60),
-                ])
-                # True End OVERDRIVE — cahaya penuh layar
-                if self._phase == "true_end" and self._dlg_step >= 7:
-                    full_glow = pygame.Surface((self._game.W, self._game.H), pygame.SRCALPHA)
-                    glow_a = min(alpha, 180)
-                    full_glow.fill((255, 240, 120, glow_a))
-                    surface.blit(full_glow, (0, 0))
-                surface.blit(s, (0, 0))
-
-            # Elena KO indicator
-            if self._phase in ("elena_hit", "true_end", "bad_end") and hasattr(self._elena, 'knocked_out') and self._elena.knocked_out:
-                try:
-                    f = pygame.font.SysFont("Georgia", 16)
-                    t = f.render("Elena — KO!", True, HP_BAR_LOW)
-                    surface.blit(t, (self._elena.x - t.get_width() // 2, self._elena.y - 70))
-                except Exception:
-                    pass
-
-            # Phase 2 indicator
-            if self._boss_phase == 2:
-                try:
-                    f = pygame.font.SysFont("Georgia", 14, bold=True)
-                    t = f.render("⚠ PHASE 2 — ENRAGE", True, DAMAGE_RED)
-                    surface.blit(t, (self._game.W // 2 - t.get_width() // 2, 55))
-                except Exception:
-                    pass
-
-        # Partikel
-        for p in self._particles:
-            alpha = int(255 * p['life'] / p['max_life'])
-            sz = max(1, p['size'])
-            s = pygame.Surface((sz * 2, sz * 2), pygame.SRCALPHA)
-            pygame.draw.circle(s, (*p['col'], alpha), (sz, sz), sz)
-            surface.blit(s, (int(p['x']) - sz, int(p['y']) - sz))
-
+        # Floating texts
         for ft in self._floats:
             ft.draw(surface)
 
+        # UI
         self._narrator.draw(surface)
         self._dialogue.draw(surface)
         members = [
@@ -843,20 +612,15 @@ class ChapterFinalScene(Scene):
 
         # Label lokasi
         lbl_map = {
-            "pre_battle":    "Aula Kerajaan Astravia — Malam Sebelum Perang",
+            "pre_battle":          "Aula Kerajaan Astravia — Malam Sebelum Perang",
             "dungeon":             "Lorong Kastil Raja Iblis",
             "dungeon_warning":     "Lorong Kastil Raja Iblis",
             "dungeon_encounter":   "Lorong Kastil — Monster Menghalangi!",
-            "boss_intro":          "Singgasana Kegelapan — Final Boss",
-            "boss_intro_encounter":"Singgasana Kegelapan — ⚔ Dekati Demon King!",
-            "phase1":        "Final Battle — Phase 1",
-            "attacking_boss":"Final Battle",
-            "elena_hit":     "Final Battle — CRISIS!",
-            "true_end":      "TRUE END ROUTE",
-            "bad_end":       "BAD END ROUTE",
+            "boss_intro":          "Singgasana Kegelapan — Demon King",
+            "boss_intro_encounter":"Singgasana Kegelapan — Kalahkan Demon King!",
         }
         lbl = lbl_map.get(self._phase, "")
-        if lbl and self._phase != "ending":
+        if lbl:
             try:
                 t = self._font_ui.render(lbl, True, UI_ACCENT)
                 surface.blit(t, (self._game.W // 2 - t.get_width() // 2, 8))

@@ -50,22 +50,6 @@ class Entity(ABC):
         return f"<{self.__class__.__name__}: {self._name}>"
 
 
-class BattleEntity(ABC):
-
-    @abstractmethod
-    def use_skill(self, skill_name: str, target) -> dict:
-        """Gunakan skill terhadap target, return dict hasil (damage, effect)."""
-        pass
-
-    @abstractmethod
-    def take_damage(self, amount: int) -> int:
-        """Terima damage, return actual damage diterima."""
-        pass
-
-    @abstractmethod
-    def is_alive(self) -> bool:
-        pass
-
 
 class Scene(ABC):
 
@@ -127,6 +111,147 @@ class Scene(ABC):
     @property
     def walkin_done(self) -> bool:
         return not self._walkin_active
+
+
+    def set_char_scale(self, *chars, scale: float = 1.5):
+        """Helper: set _draw_scale pada satu atau lebih karakter sekaligus.
+        Dipanggil dari scene untuk mengubah ukuran render karakter per-phase.
+        Contoh: self.set_char_scale(self._player, self._elena, scale=1.6)
+        """
+        for ch in chars:
+            if hasattr(ch, "_draw_scale"):
+                ch._draw_scale = scale
+
+    def draw_char_scaled(self, surface: pygame.Surface, char, scale: float = 1.6) -> None:
+        """
+        Gambar karakter dengan scale dari ukuran ASLI sprite (96×96),
+        tanpa double-scale. Ini satu-satunya fungsi scaling yang perlu dipakai
+        di scene manapun — cukup atur nilai scale-nya saja.
+
+        Cara kerja:
+        - Ambil sprite langsung dari entity (frame + flip) TANPA _draw_scale
+        - Scale sekali dengan nilai `scale`
+        - Blit dengan anchor kaki di posisi asli karakter
+
+        Tidak menggunakan char.draw() agar _draw_scale internal tidak ikut berlaku.
+        """
+        from entities.characters import _get_assets
+        assets = _get_assets()
+        if assets is None:
+            char.draw(surface)
+            return
+
+        x = int(char._x)
+        y = int(char._y + getattr(char, "_bob_offset", 0))
+
+        sprite = self._get_char_sprite(char, assets)
+
+        if sprite is not None:
+            # Flip horizontal sesuai arah hadap
+            if not getattr(char, "_facing_right", True):
+                sprite = pygame.transform.flip(sprite, True, False)
+            # Normalisasi ke 96px tinggi dulu untuk MonsterNPC, baru di-scale
+            from entities.characters import MonsterNPC as _MonsterNPC
+            if isinstance(char, _MonsterNPC):
+                SPRITE_BASE_H = 96
+                w0, h0 = sprite.get_size()
+                if h0 > 0:
+                    norm_w = max(1, int(w0 * SPRITE_BASE_H / h0))
+                    sprite = pygame.transform.scale(sprite, (norm_w, SPRITE_BASE_H))
+            w0, h0 = sprite.get_size()
+            nw = max(1, int(w0 * scale))
+            nh = max(1, int(h0 * scale))
+            scaled = pygame.transform.scale(sprite, (nw, nh))
+            surface.blit(scaled, (x - nw // 2, y - nh))
+        else:
+            # Fallback ke draw primitif ukuran asli
+            if hasattr(char, "_draw_body"):
+                char._draw_body(surface, x, y, scale)
+            else:
+                char.draw(surface)
+
+    def _get_char_sprite(self, char, assets) -> pygame.Surface | None:
+        """
+        Ambil frame sprite aktif dari entity tanpa merender ke surface.
+        Mendukung Player, PartyNPC, KingdomNPC, BossNPC, MonsterNPC.
+        """
+        name_lower = getattr(char, "_name", "").lower().replace(" ", "_")
+
+        # ── Player (Arga) ──────────────────────────────────────────────────────
+        if hasattr(char, "before_isekai"):
+            if hasattr(char, "_get_frames"):
+                frames = char._get_frames(assets)
+                if frames:
+                    idx = min(getattr(char, "_frame_idx", 0), len(frames) - 1)
+                    return frames[idx]
+            # fallback
+            return (getattr(assets, "arga_idle_after_side", None)
+                    or getattr(assets, "arga_idle_before_side", None))
+
+        # ── PartyNPC ───────────────────────────────────────────────────────────
+        if hasattr(char, "_knocked_out"):
+            # KO state
+            if char._knocked_out:
+                dead_map = {"reno": "reno_dead5", "elena": "elena_dead5",
+                            "lyra": "lyra_dead6", "darius": "darius_dead7"}
+                attr = dead_map.get(name_lower)
+                spr = getattr(assets, attr, None) if attr else None
+                return spr or getattr(assets, f"char_{name_lower}_hurt", None)
+
+            # Hurt pose
+            if getattr(char, "_hurt_pose", False):
+                # Darius pakai frame hurt ke-5 (darius-hurt5.png)
+                if name_lower == "darius":
+                    spr = getattr(assets, "darius_hurt5", None)
+                else:
+                    spr = getattr(assets, f"{name_lower}_hurt4", None)
+                return spr or getattr(assets, f"char_{name_lower}_hurt", None)
+
+            # Walk / idle frames
+            anim_state = getattr(char, "_anim_state", "idle")
+            frame_idx  = getattr(char, "_frame_idx", 0)
+            if anim_state == "walk":
+                frames = getattr(assets, f"{name_lower}_walk_frames", [])
+                if frames:
+                    return frames[frame_idx % len(frames)]
+            idle_frames = getattr(assets, f"{name_lower}_idle_frames", [])
+            if idle_frames:
+                return idle_frames[frame_idx % len(idle_frames)]
+            return getattr(assets, f"char_{name_lower}_idle", None)
+
+        # ── BossNPC (Demon King) ───────────────────────────────────────────────
+        if hasattr(char, "_phase") or name_lower in ("demon_king", "boss"):
+            idle_frames = (getattr(assets, "demon_king_idle_side_frames", None)
+                           or getattr(assets, "demon_king_idle_frames", None))
+            if idle_frames:
+                anim_t = getattr(char, "_anim_timer", 0.0)
+                idx = int(anim_t * 6) % len(idle_frames)
+                return idle_frames[idx]
+            return getattr(assets, "char_demon_king_idle", None)
+
+        # ── KingdomNPC / NPC generik ──────────────────────────────────────────────
+        attr = f"char_npc_{name_lower}"
+        spr = getattr(assets, attr, None)
+        if spr:
+            return spr
+
+        # ── MonsterNPC ─────────────────────────────────────────────────────────
+        anim_state = getattr(char, "_anim_state", "idle")
+        frame_idx  = getattr(char, "_frame_idx", 0)
+        for key in (name_lower, name_lower.replace(" ", "_"),
+                    name_lower.replace(" ", "").replace("-", "")):
+            if anim_state == "walk":
+                walk_frames = getattr(assets, f"{key}_walk_frames", [])
+                if walk_frames:
+                    return walk_frames[frame_idx % len(walk_frames)]
+            idle_frames = getattr(assets, f"{key}_idle_frames", [])
+            if idle_frames:
+                return idle_frames[frame_idx % len(idle_frames)]
+            spr = getattr(assets, f"char_{key}_idle", None)
+            if spr:
+                return spr
+
+        return None
 
     @abstractmethod
     def on_enter(self) -> None:

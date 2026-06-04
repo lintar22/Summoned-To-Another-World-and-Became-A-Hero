@@ -11,10 +11,11 @@ Alur:
   final       → Layar penutup
 
 [ASSET PENGANTIN]
-  Tambahkan gambar/sprite ke assets.py:
-    assets.arga_wedding_sprite   → path: assets/characters/heroes/arga/wedding/arga_wedding.png
-    assets.elena_wedding_sprite  → path: assets/characters/heroes/elena/wedding/elena_wedding.png
-  Jika belum tersedia, scene menggunakan fallback primitif warna-warni.
+  Tambahkan folder idle frames ke assets/characters/heroes/:
+    arga/wedding/idle1.png ... idle4.png   → arga_wedding_idle_frames
+    elena/wedding/idle1.png ... idle4.png  → elena_wedding_idle_frames
+  Animasi loop otomatis dengan kecepatan 0.15 detik/frame (sama seperti NPC lain).
+  Jika folder tidak ada, scene menggunakan fallback primitif warna-warni.
 """
 
 import pygame
@@ -383,9 +384,9 @@ class TrueEndScene(Scene):
         self._final_timer = 0.0
 
         # Karakter
-        from entities.characters import Player, PartyNPC, TownNPC
+        from entities.characters import Player, PartyNPC, KingdomNPC
         W, H = game.W, game.H
-        self._ground_y = int(H * 0.68)
+        self._ground_y = int(H * 0.82)
         gy = self._ground_y
 
         # Posisi awal: seperti setelah pertempuran (di singgasana boss)
@@ -395,22 +396,37 @@ class TrueEndScene(Scene):
         self._reno   = PartyNPC("Reno",   W // 2 - 160, gy - 55)
         self._lyra   = PartyNPC("Lyra",   W // 2 + 160, gy - 55)
         self._darius = PartyNPC("Darius", W // 2 - 240, gy - 55)
-        self._king   = TownNPC("King Aldric", W // 2, int(H * 0.30), (200, 160, 60))
+        self._king   = KingdomNPC("King Aldric", W // 2, int(H * 0.30), (200, 160, 60))
 
-        # NPC warga kota (tampil di fase town_wedding)
+        # NPC warga kota spesifik dari town scene (tampil di fase town_wedding)
+        # Posisi: kiri layar x=80,180 dan kanan layar x=W-180,W-80
+        # Party berada di tengah (x ≈ 380-810), jadi NPC di pinggir kiri & kanan
+        self._npc_child   = KingdomNPC("Anak Kecil",   80,        gy - 40, (220, 180, 120))
+        self._npc_oldman  = KingdomNPC("Pria Tua",     185,       gy - 40, (160, 140, 100))
+        self._npc_woman   = KingdomNPC("Warga Kota",   W - 185,   gy - 40, (180, 140, 140))
+        self._npc_soldier = KingdomNPC("Warga Kota 2", W - 80,    gy - 40, (140, 160, 180))
+        # Menghadap ke dalam (ke arah pasangan pengantin di tengah)
+        self._npc_child._facing_right   = True
+        self._npc_oldman._facing_right  = True
+        self._npc_woman._facing_right   = False
+        self._npc_soldier._facing_right = False
+
+        # Animasi idle hardcode NPC warga (loop seperti town_scene)
+        self._npc_anim_timer   = 0.0
+        self._npc_anim_speed   = 0.18   # detik per frame
+        self._npc_child_frame  = 0
+        self._npc_oldman_frame = 0
+        self._npc_woman_frame  = 0
+        self._npc_soldier_frame= 0
+
+        # Backward compat (tidak dipakai lagi tapi aman)
         self._townsfolk: list = []
-        _citizen_x = [80, 160, W - 160, W - 80, 60, W - 60]
-        for i, cx in enumerate(_citizen_x):
-            npc = TownNPC(f"Citizen{i}", cx, gy - 40, (
-                random.randint(100, 200),
-                random.randint(80, 180),
-                random.randint(80, 160),
-            ))
-            self._townsfolk.append(npc)
 
-        # State wedding sprite (fallback primitif jika asset belum ada)
-        self._wedding_sprite_arga  = self._load_wedding_sprite("arga")
-        self._wedding_sprite_elena = self._load_wedding_sprite("elena")
+        # Wedding idle animation state (sprite beranimasi loop seperti NPC lain)
+        self._wedding_anim_timer  = 0.0
+        self._wedding_anim_speed  = 0.15   # detik per frame
+        self._wedding_arga_frame  = 0
+        self._wedding_elena_frame = 0
 
         # Konfeti awal (akan aktif di fase town_wedding)
         for _ in range(80):
@@ -443,26 +459,15 @@ class TrueEndScene(Scene):
         self._pending_phase = ""
         self._waiting_fade  = False
 
-    # ── Asset wedding (fallback primitif) ────────────────────────────────────
+    # ── Asset wedding idle frames ────────────────────────────────────────────
 
-    def _load_wedding_sprite(self, char: str):
-        """
-        Coba load sprite pengantin dari assets.
-        Path yang diharapkan:
-          Arga  → assets/characters/heroes/arga/wedding/arga_wedding.png
-          Elena → assets/characters/heroes/elena/wedding/elena_wedding.png
-        Jika tidak ada, kembalikan None (akan digambar sebagai primitif warna).
-        """
-        try:
-            import os
-            base = os.path.join("assets", "characters", "heroes", char, "wedding")
-            path = os.path.join(base, f"{char}_wedding.png")
-            if os.path.exists(path):
-                img = pygame.image.load(path).convert_alpha()
-                return pygame.transform.smoothscale(img, (80, 120))
-        except Exception:
-            pass
-        return None
+    def _get_wedding_frames(self, char: str) -> list:
+        """Ambil list frame animasi idle wedding dari assets."""
+        if char == "arga":
+            frames = getattr(self._game.assets, "arga_wedding_idle_frames", [])
+        else:
+            frames = getattr(self._game.assets, "elena_wedding_idle_frames", [])
+        return frames if frames else []
 
     # ── Transisi antar fase ──────────────────────────────────────────────────
 
@@ -482,6 +487,11 @@ class TrueEndScene(Scene):
         for ch in (self._elena, self._reno, self._lyra, self._darius):
             ch.set_walking(False)
             ch.disable_follow()
+        # Set ukuran karakter utama 1.6 seperti scene lainnya
+        self.set_char_scale(
+            self._player, self._elena, self._reno, self._lyra, self._darius,
+            scale=1.6
+        )
         try:
             self._game.assets.play("fanfare")
         except Exception:
@@ -601,8 +611,36 @@ class TrueEndScene(Scene):
         self._lyra.update(dt)
         self._darius.update(dt)
         self._king.update(dt)
-        for npc in self._townsfolk:
-            npc.update(dt)
+        self._npc_child.update(dt)
+        self._npc_oldman.update(dt)
+        self._npc_woman.update(dt)
+        self._npc_soldier.update(dt)
+
+        # Animasi idle hardcode NPC warga (aktif di town_wedding & final)
+        if self._phase in ("town_wedding", "final"):
+            self._npc_anim_timer += dt
+            if self._npc_anim_timer >= self._npc_anim_speed:
+                self._npc_anim_timer = 0.0
+                assets = self._game.assets
+                child_f   = getattr(assets, "citizen_child_idle_frames", [])
+                oldman_f  = getattr(assets, "oldman_idle_frames",        [])
+                woman_f   = getattr(assets, "citizen_man_idle_frames",   [])
+                soldier_f = getattr(assets, "soldier_idle_frames",       [])
+                if child_f:   self._npc_child_frame   = (self._npc_child_frame   + 1) % len(child_f)
+                if oldman_f:  self._npc_oldman_frame  = (self._npc_oldman_frame  + 1) % len(oldman_f)
+                if woman_f:   self._npc_woman_frame   = (self._npc_woman_frame   + 1) % len(woman_f)
+                if soldier_f: self._npc_soldier_frame = (self._npc_soldier_frame + 1) % len(soldier_f)
+
+            # Animasi idle wedding Arga & Elena
+            self._wedding_anim_timer += dt
+            if self._wedding_anim_timer >= self._wedding_anim_speed:
+                self._wedding_anim_timer = 0.0
+                arga_frames  = self._get_wedding_frames("arga")
+                elena_frames = self._get_wedding_frames("elena")
+                if arga_frames:
+                    self._wedding_arga_frame  = (self._wedding_arga_frame  + 1) % len(arga_frames)
+                if elena_frames:
+                    self._wedding_elena_frame = (self._wedding_elena_frame + 1) % len(elena_frames)
 
         # Walk-in untuk return_trip
         self.update_walkin(dt)
@@ -663,6 +701,12 @@ class TrueEndScene(Scene):
 
     def _on_phase_enter(self):
         """Dipanggil tepat setelah fase berganti (setelah fade selesai)."""
+        # Pastikan karakter utama selalu di skala 1.6 di semua fase
+        self.set_char_scale(
+            self._player, self._elena, self._reno, self._lyra, self._darius,
+            scale=1.6
+        )
+
         if self._phase == "proposal":
             self._transition.fade_in(speed=180)
             self._narrator.show(["Di Tengah Singgasana yang Sunyi..."], 2.0)
@@ -782,13 +826,11 @@ class TrueEndScene(Scene):
 
         # Background per fase
         if self._phase in ("rest", "proposal"):
-            surface.blit(self._game.assets.bg_castle_int, (0, 0))
-        elif self._phase == "return_trip":
-            surface.blit(self._game.assets.bg_castle_ext, (0, 0))
-        elif self._phase == "royal_hall":
-            surface.blit(self._game.assets.bg_throne_room, (0, 0))
+            surface.blit(self._game.assets.bg_ruang_boss_rusak, (0, 0))
+        elif self._phase in ("return_trip", "royal_hall"):
+            surface.blit(self._game.assets.bg_belairung, (0, 0))
         else:  # town_wedding, final
-            surface.blit(self._game.assets.bg_ending, (0, 0))
+            surface.blit(self._game.assets.bg_hari_pernikahan, (0, 0))
 
         # ── Fase REST ────────────────────────────────────────────────────────
         if self._phase == "rest":
@@ -828,9 +870,21 @@ class TrueEndScene(Scene):
             self._draw_fireworks(surface)
             self._draw_confetti(surface)
 
-            # NPC warga
-            for npc in self._townsfolk:
-                npc.draw(surface)
+            # NPC warga kota — digambar dengan sprite animasi hardcode
+            # Kiri layar (menghadap kanan)
+            self._draw_npc_frame(surface, "citizen_child_idle_frames", self._npc_child_frame,
+                                 int(self._npc_child._x), int(self._npc_child._y),
+                                 facing_right=self._npc_child._facing_right)
+            self._draw_npc_frame(surface, "oldman_idle_frames", self._npc_oldman_frame,
+                                 int(self._npc_oldman._x), int(self._npc_oldman._y),
+                                 facing_right=self._npc_oldman._facing_right)
+            # Kanan layar (menghadap kiri)
+            self._draw_npc_frame(surface, "citizen_man_idle_frames", self._npc_woman_frame,
+                                 int(self._npc_woman._x), int(self._npc_woman._y),
+                                 facing_right=self._npc_woman._facing_right)
+            self._draw_npc_frame(surface, "soldier_idle_frames", self._npc_soldier_frame,
+                                 int(self._npc_soldier._x), int(self._npc_soldier._y),
+                                 facing_right=self._npc_soldier._facing_right)
             # Party
             self._reno.draw(surface)
             self._lyra.draw(surface)
@@ -885,6 +939,30 @@ class TrueEndScene(Scene):
             except Exception:
                 pass
 
+    # ── Draw NPC frame helper ────────────────────────────────────────────────
+
+    def _draw_npc_frame(self, surface, frames_attr, frame_idx, x, y,
+                        scale=1.4, facing_right=True):
+        """Gambar NPC dari frame list di assets, normalisasi ke 96px.
+        Skala 1.4 sedikit lebih kecil dari karakter utama agar perspektif wajar.
+        """
+        SPRITE_BASE_H = 96
+        frames = getattr(self._game.assets, frames_attr, [])
+        if not frames:
+            return
+        img = frames[frame_idx % len(frames)]
+        orig_w, orig_h = img.get_size()
+        if orig_h <= 0:
+            return
+        norm_w = int(orig_w * SPRITE_BASE_H / orig_h)
+        normalized = pygame.transform.scale(img, (norm_w, SPRITE_BASE_H))
+        new_w = int(norm_w * scale)
+        new_h = int(SPRITE_BASE_H * scale)
+        scaled = pygame.transform.scale(normalized, (new_w, new_h))
+        if not facing_right:
+            scaled = pygame.transform.flip(scaled, True, False)
+        surface.blit(scaled, (x - new_w // 2, y - new_h))
+
     # ── Helper draw ──────────────────────────────────────────────────────────
 
     def _draw_tired_labels(self, surface: pygame.Surface):
@@ -936,29 +1014,51 @@ class TrueEndScene(Scene):
 
     def _draw_wedding_characters(self, surface: pygame.Surface):
         """
-        Gambar Arga & Elena dalam pakaian pengantin.
-        Prioritas: sprite wedding asset → fallback primitif.
+        Gambar Arga & Elena dalam pakaian pengantin dengan animasi idle.
+        Menggunakan arga_wedding_idle_frames / elena_wedding_idle_frames dari assets.
+        Fallback ke primitif jika frames tidak tersedia.
         """
-        px, py = int(self._player._x), int(self._player._y)
-        ex, ey = int(self._elena._x), int(self._elena._y)
+        SPRITE_BASE_H = 96   # tinggi normalisasi (sama dengan NPC lain)
+        SCALE         = 1.6  # sama dengan skala karakter utama
 
-        if self._wedding_sprite_arga:
-            surface.blit(self._wedding_sprite_arga,
-                         (px - self._wedding_sprite_arga.get_width() // 2,
-                          py - self._wedding_sprite_arga.get_height() + 20))
+        px, py = int(self._player._x), int(self._player._y)
+        ex, ey = int(self._elena._x),  int(self._elena._y)
+
+        arga_frames  = self._get_wedding_frames("arga")
+        elena_frames = self._get_wedding_frames("elena")
+
+        # ── Arga ──
+        if arga_frames:
+            img = arga_frames[self._wedding_arga_frame % len(arga_frames)]
+            orig_w, orig_h = img.get_size()
+            if orig_h > 0:
+                norm_w  = int(orig_w * SPRITE_BASE_H / orig_h)
+                norm_img = pygame.transform.scale(img, (norm_w, SPRITE_BASE_H))
+                new_w   = int(norm_w * SCALE)
+                new_h   = int(SPRITE_BASE_H * SCALE)
+                scaled  = pygame.transform.scale(norm_img, (new_w, new_h))
+                # Arga menghadap kanan (default, tidak di-flip)
+                surface.blit(scaled, (px - new_w // 2, py - new_h))
         else:
-            # Fallback primitif Arga pengantin — jas putih
             self._draw_primitive_groom(surface, px, py)
 
-        if self._wedding_sprite_elena:
-            surface.blit(self._wedding_sprite_elena,
-                         (ex - self._wedding_sprite_elena.get_width() // 2,
-                          ey - self._wedding_sprite_elena.get_height() + 20))
+        # ── Elena ──
+        if elena_frames:
+            img = elena_frames[self._wedding_elena_frame % len(elena_frames)]
+            orig_w, orig_h = img.get_size()
+            if orig_h > 0:
+                norm_w  = int(orig_w * SPRITE_BASE_H / orig_h)
+                norm_img = pygame.transform.scale(img, (norm_w, SPRITE_BASE_H))
+                new_w   = int(norm_w * SCALE)
+                new_h   = int(SPRITE_BASE_H * SCALE)
+                scaled  = pygame.transform.scale(norm_img, (new_w, new_h))
+                # Elena menghadap kiri (flip horizontal)
+                scaled  = pygame.transform.flip(scaled, True, False)
+                surface.blit(scaled, (ex - new_w // 2, ey - new_h))
         else:
-            # Fallback primitif Elena pengantin — gaun putih
             self._draw_primitive_bride(surface, ex, ey)
 
-        # Label nama di bawah
+        # Label nama di bawah pasangan
         try:
             f = pygame.font.SysFont("Georgia", 14, bold=True)
             for name, cx in [("Arga", px), ("Elena", ex)]:
@@ -966,6 +1066,7 @@ class TrueEndScene(Scene):
                 surface.blit(t, (cx - t.get_width() // 2, py + 25))
         except Exception:
             pass
+
 
     def _draw_primitive_groom(self, surface: pygame.Surface, cx: int, cy: int):
         """Jas pengantin sederhana (primitif) untuk Arga."""

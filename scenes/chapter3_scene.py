@@ -43,7 +43,7 @@ class Chapter3Scene(Scene):
         ("Arga",   "Kamu tidak takut?"),
         ("Reno",   "Takut itu memang pasti. Tapi daripada diem doang disini, mending aku ikut dengan kalian."),
         ("Arga",   "...Baiklah. Selamat datang Reno, semoga kita bisa saling membantu yah."),
-        ("SYSTEM", "⭐ Reno bergabung dengan party!"),
+        ("SYSTEM", "Reno bergabung dengan party!"),
     ]
 
     LYRA_DLGS = [
@@ -116,7 +116,7 @@ class Chapter3Scene(Scene):
         ("Lyra", "Jangan membuatku menyesal mengambil keputusan ini."),
         ("Arga", "Tidak ada jaminan."),
         ("Lyra", "...Hah. Setidaknya kamu jujur."),
-        ("SYSTEM", "⭐ Lyra bergabung dengan party.")
+        ("SYSTEM", "Lyra bergabung dengan party.")
 
     ]
 
@@ -202,7 +202,7 @@ class Chapter3Scene(Scene):
         ("Reno", "Fiyuhhh! Akhirnya ada orang normal di kelompok ini."),
         ("Lyra", "Kupikir itu justru mengurangi jumlah orang normal menjadi nol."),
         ("Darius", "...Aku mulai mengerti kenapa kalian bisa bertahan sejauh ini."),
-        ("SYSTEM", "⭐ Darius bergabung dengan party.")
+        ("SYSTEM", "Darius bergabung dengan party.")
 
     ]
 
@@ -211,17 +211,17 @@ class Chapter3Scene(Scene):
         "forest":  [
             ("Reno",   "...Tunggu. Aku cium bau sesuatu."),
             ("Elena",  "Dari arah timur! Ada gerombolan Monster!"),
-            ("SYSTEM", "⚠  Monster muncul dari balik pohon!"),
+            ("SYSTEM", "Monster muncul dari balik pohon!"),
         ],
         "ruins":   [
             ("Lyra",   "Energi sihir kuno ini mulai bereaksi..."),
             ("Arga",   "Hati-hati semua. Ada yang datang dari arah sana!"),
-            ("SYSTEM", "⚠ Monster bangkit dari reruntuhan!"),
+            ("SYSTEM", "Monster bangkit dari reruntuhan!"),
         ],
         "village": [
             ("Darius", "Suara langkah kaki... mereka datang lagi sialan!"),
             ("Reno",   "Banyak monster yang mau datang kesini, hati-hati semuanya!"),
-            ("SYSTEM", "⚠ Gerombolan monster menyerbu dari arah timur!"),
+            ("SYSTEM", "Gerombolan monster menyerbu dari arah timur!"),
         ],
     }
 
@@ -275,12 +275,19 @@ class Chapter3Scene(Scene):
     ]
 
     MONTAGE_TEXT = [
-        "Sebulan berlalu sejak party terbentuk...",
-        "Mereka melewati pegunungan, padang gurun, dan laut badai...",
-        "Setiap pertempuran mempererat ikatan mereka...",
-        "Dan kini... Kastil Raja Iblis telah tampak di cakrawala.",
-        "Ini bukan lagi tentang ramalan.",
-        "Ini tentang mereka — dan semua yang mereka jaga.",
+        "Sebulan telah berlalu sejak mereka meninggalkan Desa Karavel...",
+        "Jalan yang mereka tempuh untuk kembali ke kerajaan tidak selalu mudah.",
+        "Monster dan iblis ada dimana-mana.",
+        "Namun tak satu pun mampu menghentikan langkah mereka.",
+        "Di sepanjang perjalanan, mereka tertawa bersama...",
+        "Berjuang bersama...",
+        "Dan tumbuh menjadi sahabat yang dapat saling mempercayai nyawa mereka satu sama lain.",
+        "Kini, tujuan akhir itu akhirnya terlihat.",
+        "Kastil Raja Iblis berdiri megah di kejauhan.",
+        "Pertarungan yang menentukan nasib dunia sudah menanti.",
+        "Dan untuk pertama kalinya...",
+        "Mereka tidak melangkah demi sebuah ramalan.",
+        "Mereka melangkah demi orang-orang yang mereka sayangi."
     ]
 
     def __init__(self, game):
@@ -297,7 +304,12 @@ class Chapter3Scene(Scene):
         self._floats: list[FloatingText] = []
         self._party_hud = PartyHUD()
 
-        ground_y = int(game.H * 0.62)
+        # Ground Y per background — disamakan dengan chapter 1 (H * 0.82)
+        self._ground_y_forest   = int(game.H * 0.82)
+        self._ground_y_village  = int(game.H * 0.82)
+        self._ground_y_campfire = int(game.H * 0.82)
+        self._ground_y_ruins    = int(game.H * 0.82)
+        ground_y = self._ground_y_forest   # default awal
         self._ground_y = ground_y
 
         self._player = Player(-80, ground_y - 55)
@@ -306,7 +318,6 @@ class Chapter3Scene(Scene):
         self._reno   = PartyNPC("Reno",    700, ground_y - 55)
         self._lyra   = PartyNPC("Lyra",    700, ground_y - 55)
         self._darius = PartyNPC("Darius",  700, ground_y - 55)
-
         self._reno_joined   = False
         self._lyra_joined   = False
         self._darius_joined = False
@@ -344,8 +355,93 @@ class Chapter3Scene(Scene):
             self._font_mon = pygame.font.Font(None, 22)
 
     def on_enter(self) -> None:
+        flags = self._game.flags
+        W = self._game.W
+
+        # ── Deteksi kembali dari BattleScene via game.flags ──────────────────
+        # BattleScene men-set flags["battle_won_{enc_id}"] sebelum replace_scene.
+        # Kita baca flag itu di sini, hapus, lalu lanjut ke sub_phase yang benar.
+
+        if flags.pop("battle_won_forest", False):
+            # Kembali dari battle Hutan Verdia → langsung ke forest_post
+            self._sub_phase = "forest_post"
+            self._apply_ground_y("forest"); self._set_phase_scale("forest")
+            self._transition.fade_in(speed=200)
+            self._player._x          = int(W * 0.30)
+            self._player._facing_right = True
+            self._elena._x           = int(W * 0.20)
+            self._elena._facing_right = True
+            self._reno._x            = int(W * 0.60)
+            self._reno._facing_right  = False
+            self._reno._hurt_pose    = False
+            # Setup follow target (wajib — scene dibuat fresh, follow_target = None)
+            self._elena.follow(self._player);  self._elena.follow_distance  = -80
+            self._reno.follow(self._player);   self._reno.follow_distance   =  80
+            self._lyra.follow(self._player);   self._lyra.follow_distance   = -160
+            self._darius.follow(self._player); self._darius.follow_distance =  160
+            for ch in (self._elena, self._reno, self._lyra, self._darius):
+                ch.disable_follow()
+            self._dialogue.show(self.RENO_POST_BATTLE[0][1], self.RENO_POST_BATTLE[0][0])
+            return
+
+        if flags.pop("battle_won_ruins", False):
+            # Kembali dari battle Reruntuhan → langsung ke ruins_post
+            self._sub_phase = "ruins_post"
+            self._reno_joined = True
+            self._party_display.append("Reno")
+            self._apply_ground_y("ruins"); self._set_phase_scale("ruins")
+            self._transition.fade_in(speed=200)
+            self._player._x           = int(W * 0.22)
+            self._player._facing_right = True
+            self._elena._x            = int(W * 0.14)
+            self._elena._facing_right  = True
+            self._reno._x             = int(W * 0.31)
+            self._reno._facing_right   = True
+            self._lyra._x             = int(W * 0.55)
+            self._lyra._facing_right   = False
+            # Setup follow target (wajib — scene dibuat fresh, follow_target = None)
+            self._elena.follow(self._player);  self._elena.follow_distance  = -80
+            self._reno.follow(self._player);   self._reno.follow_distance   =  80
+            self._lyra.follow(self._player);   self._lyra.follow_distance   = -160
+            self._darius.follow(self._player); self._darius.follow_distance =  160
+            for ch in (self._elena, self._reno, self._lyra, self._darius):
+                ch.disable_follow()
+            self._dialogue.show(self.LYRA_POST_BATTLE[0][1], self.LYRA_POST_BATTLE[0][0])
+            return
+
+        if flags.pop("battle_won_village", False):
+            # Kembali dari battle Desa → langsung ke village_post
+            self._sub_phase = "village_post"
+            self._reno_joined  = True
+            self._lyra_joined  = True
+            self._party_display.append("Reno")
+            self._party_display.append("Lyra")
+            self._apply_ground_y("village"); self._set_phase_scale("village")
+            self._transition.fade_in(speed=200)
+            self._player._x            = int(W * 0.22)
+            self._player._facing_right  = True
+            self._elena._x             = int(W * 0.13)
+            self._elena._facing_right   = True
+            self._reno._x              = int(W * 0.31)
+            self._reno._facing_right    = True
+            self._lyra._x              = int(W * 0.40)
+            self._lyra._facing_right    = True
+            self._darius._x            = int(W * 0.60)
+            self._darius._facing_right  = False
+            self._darius._hurt_pose    = False
+            # Setup follow target (wajib — scene dibuat fresh, follow_target = None)
+            self._elena.follow(self._player);  self._elena.follow_distance  = -80
+            self._reno.follow(self._player);   self._reno.follow_distance   =  80
+            self._lyra.follow(self._player);   self._lyra.follow_distance   = -160
+            self._darius.follow(self._player); self._darius.follow_distance =  160
+            for ch in (self._elena, self._reno, self._lyra, self._darius):
+                ch.disable_follow()
+            self._dialogue.show(self.DARIUS_POST_BATTLE[0][1], self.DARIUS_POST_BATTLE[0][0])
+            return
+
+        # ── Normal entry (awal chapter) ──────────────────────────────────────
         self._transition.fade_in(speed=160)
-        self._narrator.show(["Chapter 3 — New Companions", "Hutan Verdan"], 3.0)
+        self._narrator.show(["Chapter 3 — Teman Baru", "Hutan Verdan"], 3.0)
         self._dialogue.show(self.RENO_DLGS[0][1], self.RENO_DLGS[0][0])
         # Reno terluka (1 frame hurt4) — terlihat di posisi dalam layar
         self._reno._hurt_pose   = True
@@ -363,6 +459,29 @@ class Chapter3Scene(Scene):
             (self._player, 200),
             (self._elena,  280),
         ])
+
+    def _apply_ground_y(self, phase_base: str):
+        """Update ground_y dan posisi Y semua karakter sesuai background phase."""
+        gy_map = {
+            "forest":   self._ground_y_forest,
+            "ruins":    self._ground_y_ruins,
+            "village":  self._ground_y_village,
+            "campfire": self._ground_y_campfire,
+        }
+        new_gy = gy_map.get(phase_base, self._ground_y_forest)
+        self._ground_y = new_gy
+        for ch in (self._player, self._elena, self._reno, self._lyra, self._darius):
+            ch._y = new_gy - 55
+        for enemy in self._enemies:
+            enemy._y = new_gy - 35
+
+    def _set_phase_scale(self, phase_base: str):
+        """Set ukuran render semua karakter sesuai phase — semua 1.6 secara default."""
+        self.set_char_scale(
+            self._player, self._elena,
+            self._reno, self._lyra, self._darius,
+            scale=1.6
+        )
 
     def _go_to_phase(self, new_phase: str):
         self._pending_phase = new_phase
@@ -403,7 +522,7 @@ class Chapter3Scene(Scene):
         elif self._sub_phase == "forest_warning":
             self._advance_warning()
 
-        if self._sub_phase == "forest_post":
+        elif self._sub_phase == "forest_post":
             # Nonaktifkan hurt pose — Reno sudah selesai bertarung
             self._reno._hurt_pose = False
 
@@ -531,25 +650,25 @@ class Chapter3Scene(Scene):
         ground_y = self._ground_y
 
         if phase_name == "forest":
-            # 2 Mushroom
+            # 2 Goblin (asset tersedia)
             configs = [
-                ("Mushroom", screen_w + 60,  screen_w - 160, 100),
-                ("Mushroom", screen_w + 140, screen_w - 260, 100),
+                ("Goblin", screen_w + 60,  screen_w - 160, 100),
+                ("Goblin", screen_w + 140, screen_w - 260, 100),
             ]
         elif phase_name == "ruins":
-            # 3 Stone Golem
+            # 3 Minotaur (asset tersedia, menggantikan Stone Golem)
             configs = [
-                ("Stone Golem", screen_w + 60,  screen_w - 140, 180),
-                ("Stone Golem", screen_w + 140, screen_w - 240, 180),
-                ("Stone Golem", screen_w + 220, screen_w - 340, 180),
+                ("Minotaur", screen_w + 60,  screen_w - 140, 180),
+                ("Minotaur", screen_w + 140, screen_w - 240, 180),
+                ("Minotaur", screen_w + 220, screen_w - 340, 180),
             ]
         elif phase_name == "village":
-            # 3 Goblin + 1 Orc
+            # 3 Goblin + 1 Minotaur (Orc diganti Minotaur karena asset tersedia)
             configs = [
-                ("Goblin", screen_w + 60,  screen_w - 130, 80),
-                ("Goblin", screen_w + 130, screen_w - 210, 80),
-                ("Goblin", screen_w + 200, screen_w - 290, 80),
-                ("Orc",    screen_w + 290, screen_w - 400, 160),
+                ("Goblin",   screen_w + 60,  screen_w - 130, 80),
+                ("Goblin",   screen_w + 130, screen_w - 210, 80),
+                ("Goblin",   screen_w + 200, screen_w - 290, 80),
+                ("Minotaur", screen_w + 290, screen_w - 400, 160),
             ]
         else:
             configs = []
@@ -560,7 +679,7 @@ class Chapter3Scene(Scene):
             self._enemies.append(m)
 
         self._sub_phase = f"{phase_name}_encounter"
-        self._narrator.show(["⚠ Musuh datang!", "Dekati dan tekan  E  untuk bertarung!"], 2.5)
+        self._narrator.show(["Musuh datang!", "Dekati dan tekan  E  untuk bertarung!"], 2.5)
 
     def _try_start_battle(self):
         """
@@ -639,9 +758,13 @@ class Chapter3Scene(Scene):
                 tx = getattr(enemy, '_target_x', enemy.x)
                 if enemy.x > tx + 2:
                     enemy.x = max(tx, enemy.x - 220 * dt)
+                    if hasattr(enemy, 'set_walking'):
+                        enemy.set_walking(True, True)
                     all_arrived = False
                 else:
                     enemy.x = tx
+                    if hasattr(enemy, 'set_walking'):
+                        enemy.set_walking(False)
             if all_arrived and not self._enemy_walkin_done:
                 self._enemy_walkin_done    = True
                 self._enemy_walkin_active  = False
@@ -663,6 +786,8 @@ class Chapter3Scene(Scene):
                     ch.disable_follow()
 
             if self._sub_phase == "forest_post":
+                self._apply_ground_y("forest")
+                self._set_phase_scale("forest")
                 self._transition.fade_in(speed=200)
                 # Arga & Elena hadap kanan ke arah Reno, Reno hadap kiri
                 W = self._game.W
@@ -679,6 +804,8 @@ class Chapter3Scene(Scene):
                 self._dialogue.show(self.RENO_POST_BATTLE[0][1], self.RENO_POST_BATTLE[0][0])
 
             elif self._sub_phase == "ruins":
+                self._apply_ground_y("ruins")
+                self._set_phase_scale("ruins")
                 self._transition.fade_in(speed=200)
                 self._narrator.show(["Reruntuhan Sihir — Lyra"], 2.5)
                 self._dialogue.show(self.LYRA_DLGS[0][1], self.LYRA_DLGS[0][0])
@@ -696,6 +823,8 @@ class Chapter3Scene(Scene):
                 ])
 
             elif self._sub_phase == "ruins_post":
+                self._apply_ground_y("ruins")
+                self._set_phase_scale("ruins")
                 self._transition.fade_in(speed=200)
                 # Posisi ngobrol: Arga, Elena, Reno hadap kanan ke Lyra
                 W = self._game.W
@@ -712,6 +841,8 @@ class Chapter3Scene(Scene):
                 self._dialogue.show(self.LYRA_POST_BATTLE[0][1], self.LYRA_POST_BATTLE[0][0])
 
             elif self._sub_phase == "village":
+                self._apply_ground_y("village")
+                self._set_phase_scale("village")
                 self._transition.fade_in(speed=200)
                 self._narrator.show(["Desa Terbakar — Darius"], 2.5)
                 self._dialogue.show(self.DARIUS_DLGS[0][1], self.DARIUS_DLGS[0][0])
@@ -731,6 +862,8 @@ class Chapter3Scene(Scene):
                 ])
 
             elif self._sub_phase == "village_post":
+                self._apply_ground_y("village")
+                self._set_phase_scale("village")
                 self._transition.fade_in(speed=200)
                 # Posisi ngobrol: party hadap kanan ke Darius, Darius hadap kiri
                 W = self._game.W
@@ -750,6 +883,8 @@ class Chapter3Scene(Scene):
                 self._dialogue.show(self.DARIUS_POST_BATTLE[0][1], self.DARIUS_POST_BATTLE[0][0])
 
             elif self._sub_phase == "campfire":
+                self._apply_ground_y("campfire")
+                self._set_phase_scale("campfire")
                 self._transition.fade_in(speed=180)
                 self._narrator.show(["Malam Sebelum Perang", "Api Unggun Party"], 3.0)
                 self._dialogue.show(self.CAMPFIRE_DLGS[0][1], self.CAMPFIRE_DLGS[0][0])
@@ -800,8 +935,10 @@ class Chapter3Scene(Scene):
                                                             "village_post", "campfire"):
                 self._darius.update(dt)
 
-        # Setelah walkin selesai → aktifkan follow untuk semua yang sudah join
-        if not self._walkin_active and self._sub_phase != "campfire":
+        # Setelah walkin selesai → aktifkan follow hanya saat fase encounter
+        # (player boleh gerak bebas). Di fase *_post & campfire karakter diam untuk dialog.
+        _follow_ok = {"forest_encounter", "ruins_encounter", "village_encounter"}
+        if not self._walkin_active and self._sub_phase in _follow_ok:
             if not self._elena._follow_enabled:
                 self._elena.enable_follow()
             if self._reno_joined and not self._reno._follow_enabled:
@@ -884,6 +1021,19 @@ class Chapter3Scene(Scene):
                 'col': random.choice([(255,100,20), (255,180,20), (255,60,0)]),
             })
 
+    # Scale per sub-phase — ubah nilai ini untuk atur ukuran karakter per lokasi
+    _PHASE_SCALE = {
+        "forest":   1.6,
+        "ruins":    1.6,
+        "village":  1.6,
+        "campfire": 1.6,
+    }
+
+    def _draw_char_scaled(self, surface, char, scale=1.6):
+        """Wrapper ke draw_char_scaled dari base Scene.
+        Scale dari ukuran sprite asli (96×96) — satu kali scaling, tidak double."""
+        self.draw_char_scaled(surface, char, scale)
+
     # ── Draw ─────────────────────────────────────────────────────────────────
 
     def draw(self, surface: pygame.Surface) -> None:
@@ -891,12 +1041,14 @@ class Chapter3Scene(Scene):
 
         # Tentukan background berdasarkan sub_phase
         phase_base = self._sub_phase.replace("_warning", "").replace("_encounter", "").replace("_post", "")
+        _sc = self._PHASE_SCALE.get(phase_base, 1.6)
+
         if phase_base in ("forest", "ruins", "village", "campfire"):
             bg_map = {
                 "forest":   self._game.assets.bg_forest,
                 "ruins":    self._game.assets.bg_ruins,
                 "village":  self._game.assets.bg_village,
-                "campfire": self._game.assets.bg_night_city,
+                "campfire": self._game.assets.bg_campfire,
             }
             bg = bg_map.get(phase_base, self._game.assets.bg_forest)
             surface.blit(bg, (sx, 0))
@@ -917,32 +1069,32 @@ class Chapter3Scene(Scene):
 
         # Gambar karakter (hanya saat bukan montage)
         if self._sub_phase not in ("montage", "goto_ch3"):
-            self._player.draw(surface)
-            self._elena.draw(surface)
+            self._draw_char_scaled(surface, self._player, _sc)
+            self._draw_char_scaled(surface, self._elena,  _sc)
 
             if phase_base in ("forest",):
-                self._reno.draw(surface)
+                self._draw_char_scaled(surface, self._reno, _sc)
             elif phase_base in ("ruins",):
-                self._reno.draw(surface)
-                self._lyra.draw(surface)
+                self._draw_char_scaled(surface, self._reno, _sc)
+                self._draw_char_scaled(surface, self._lyra, _sc)
             elif phase_base in ("village",):
-                self._reno.draw(surface)
-                self._lyra.draw(surface)
-                self._darius.draw(surface)
+                self._draw_char_scaled(surface, self._reno,   _sc)
+                self._draw_char_scaled(surface, self._lyra,   _sc)
+                self._draw_char_scaled(surface, self._darius, _sc)
             elif phase_base == "campfire":
-                self._reno.draw(surface)
-                self._lyra.draw(surface)
-                self._darius.draw(surface)
+                self._draw_char_scaled(surface, self._reno,   _sc)
+                self._draw_char_scaled(surface, self._lyra,   _sc)
+                self._draw_char_scaled(surface, self._darius, _sc)
                 self._draw_campfire(surface)
 
         # Gambar enemies
         for enemy in self._enemies:
-            enemy.draw(surface)
+            self._draw_char_scaled(surface, enemy, 1.7)
             # Indikator interaksi
             if self._enemies_interactable:
                 px = self._player._x
                 if abs(enemy.x - px) < 120:
-                    self._draw_interact_hint(surface, int(enemy.x), int(enemy.y) - 70)
+                    self._draw_interact_hint(surface, int(enemy.x), int(enemy.y) - int(80 * 1.7))
 
         for ft in self._floats:
             ft.draw(surface)
@@ -962,9 +1114,9 @@ class Chapter3Scene(Scene):
         lbl_map = {
             "forest":   "Hutan Verdan",
             "ruins":    "Reruntuhan Sihir Kuno",
-            "village":  "Desa Karavel — Terbakar",
-            "campfire": "Kamp — Malam Sebelum Perang",
-            "montage":  "Satu Tahun Berlalu...",
+            "village":  "Desa Karavel",
+            "campfire": "Malam Hari",
+            "montage":  "Dua Bulan Berlalu...",
         }
         lbl = lbl_map.get(phase_base, "")
         if lbl:
