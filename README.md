@@ -1,3 +1,4 @@
+<div align="center">
 # ⚔️ Summoned To Another World and Became A Hero ⚔️
 
 *"Tunggu, pahlawan? Maksudnya aku?"*
