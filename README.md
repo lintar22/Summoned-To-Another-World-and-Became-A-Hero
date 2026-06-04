@@ -34,11 +34,11 @@ Bertahun-tahun dunia ini diambang kehancuran
 
 </div>
 
-Arga adalah seorang pelajar biasa sedang berjalan pulang di malam hujan ketika tiba-tiba tersedot ke dalam dunia lain bernama **Astravia**. Ia tiba di hadapan Raja Aldric beserta seluruh ksatria dan penyihir kerajaan, yang mengklaim telah memanggil seorang pahlawan melalui ritual kuno.
+Arga adalah seorang pelajar biasa sedang berjalan pulang di malam hujan ketika tiba-tiba tersedot ke dalam dunia lain bernama Astravia. Ia tiba di hadapan Raja Aldric beserta seluruh ksatria dan penyihir kerajaan, yang mengklaim telah memanggil seorang pahlawan melalui ritual kuno.
 
 Dunia Astravia berada di ambang kehancuran. Raja Iblis telah bergerak kerajaan-kerajaan jatuh satu per satu, desa dibakar, ribuan nyawa hilang. Ramalan kuno berkata hanya pahlawan dari dunia lain yang bisa menghentikannya.
 
-Tanpa Arga minta, **Pedang Suci** terbang sendiri dan memilih dirinya. Bersama Elena, Lyra, Darius, dan Reno party yang ia kumpulkan di tengah perjalanan — Arga melintasi kota Astravia, hutan berbahaya, reruntuhan kuno, hingga kastil Demon King itu sendiri.
+Tanpa Arga minta, Pedang Suci terbang dan memilih dirinya. Bersama Elena, Lyra, Darius, dan Reno party yang ia kumpulkan di tengah perjalanan Arga melintasi kota Astravia, hutan berbahaya, reruntuhan kuno, hingga kastil Demon King itu sendiri.
 
 ---
 
