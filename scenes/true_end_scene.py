@@ -1,22 +1,3 @@
-"""
-scenes/true_end_scene.py
-========================
-TRUE ENDING — Dipanggil setelah boss dikalahkan di final chapter.
-Alur:
-  rest        → Arga & Elena kelelahan, istirahat di tempat bos mati
-  proposal    → Arga melamar Elena (idle hadap-hadapan)
-  return_trip → Perjalanan pulang ke kerajaan (walkin)
-  royal_hall  → Arga minta hadiah ke Raja, Raja setujui pernikahan
-  town_wedding→ Perayaan di kota, Arga & Elena dalam pakaian pengantin
-  final       → Layar penutup
-
-[ASSET PENGANTIN]
-  Tambahkan folder idle frames ke assets/characters/heroes/:
-    arga/wedding/idle1.png ... idle4.png   → arga_wedding_idle_frames
-    elena/wedding/idle1.png ... idle4.png  → elena_wedding_idle_frames
-  Animasi loop otomatis dengan kecepatan 0.15 detik/frame (sama seperti NPC lain).
-  Jika folder tidak ada, scene menggunakan fallback primitif warna-warni.
-"""
 
 import pygame
 import math
@@ -26,7 +7,7 @@ from engine.colors import *
 from ui.components import DialogueBox, TransitionScreen, NarratorBox
 
 
-# ─── Dialog per fase ───────────────────────────────────────────────────────────
+                                                                                 
 
 REST_DLGS = [
     ("SYSTEM",  "⚔ Raja Iblis telah dikalahkan."),
@@ -360,75 +341,86 @@ TOWN_DLGS = [
 
 
 class TrueEndScene(Scene):
-    """
-    True Ending Scene.
-    Dipanggil oleh final_chapter_scene setelah boss dikalahkan.
-    """
 
     def __init__(self, game):
         super().__init__(game)
         self._t        = 0.0
         self._dlg_step = 0
-        # Fase: rest → proposal → return_trip → royal_hall → town_wedding → final
+                                                                                 
         self._phase    = "rest"
 
         self._dialogue   = DialogueBox(game.W, game.H)
         self._transition = TransitionScreen(game.W, game.H)
         self._narrator   = NarratorBox(game.W, game.H)
 
-        # Partikel kembang api & konfeti
+                                        
         self._fireworks: list[dict] = []
         self._fw_timer  = 0.0
         self._confetti: list[dict] = []
         self._final_alpha = 0
         self._final_timer = 0.0
 
-        # Karakter
+                  
         from entities.characters import Player, PartyNPC, KingdomNPC
         W, H = game.W, game.H
         self._ground_y = int(H * 0.82)
         gy = self._ground_y
 
-        # Posisi awal: seperti setelah pertempuran (di singgasana boss)
+                                                                       
         self._player = Player(W // 2 - 60, gy - 55)
         self._player.before_isekai = False
         self._elena  = PartyNPC("Elena",  W // 2 + 60, gy - 55)
         self._reno   = PartyNPC("Reno",   W // 2 - 160, gy - 55)
         self._lyra   = PartyNPC("Lyra",   W // 2 + 160, gy - 55)
         self._darius = PartyNPC("Darius", W // 2 - 240, gy - 55)
-        self._king   = KingdomNPC("King Aldric", W // 2, int(H * 0.30), (200, 160, 60))
+        self._king   = KingdomNPC("King Aldric", W // 2 + 160, float(gy - 55), (200, 160, 60))
+        self._mage   = KingdomNPC("Mage",        int(W * 0.28),  float(gy - 55))
+        self._knight = KingdomNPC("Knight",      int(W * 0.38),  float(gy - 55))
+        self._king._facing_right   = False                                            
+        self._mage._facing_right   = True
+        self._knight._facing_right = True
+                                               
+        self._npc_king_frame   = 0
+        self._npc_mage_frame   = 0
+        self._npc_knight_frame = 0
+        self._royal_anim_timer = 0.0
+                                                   
+        self._rh_walkin_done   = False                                       
+        self._rh_retreat_done  = False                                               
+        self._rh_retreat_timer = 0.0                                   
+        self._rh_retreat_started = False
 
-        # NPC warga kota spesifik dari town scene (tampil di fase town_wedding)
-        # Posisi: kiri layar x=80,180 dan kanan layar x=W-180,W-80
-        # Party berada di tengah (x ≈ 380-810), jadi NPC di pinggir kiri & kanan
+                                                                               
+                                                                  
+                                                                                
         self._npc_child   = KingdomNPC("Anak Kecil",   80,        gy - 40, (220, 180, 120))
         self._npc_oldman  = KingdomNPC("Pria Tua",     185,       gy - 40, (160, 140, 100))
         self._npc_woman   = KingdomNPC("Warga Kota",   W - 185,   gy - 40, (180, 140, 140))
         self._npc_soldier = KingdomNPC("Warga Kota 2", W - 80,    gy - 40, (140, 160, 180))
-        # Menghadap ke dalam (ke arah pasangan pengantin di tengah)
+                                                                   
         self._npc_child._facing_right   = True
         self._npc_oldman._facing_right  = True
         self._npc_woman._facing_right   = False
         self._npc_soldier._facing_right = False
 
-        # Animasi idle hardcode NPC warga (loop seperti town_scene)
+                                                                   
         self._npc_anim_timer   = 0.0
-        self._npc_anim_speed   = 0.18   # detik per frame
+        self._npc_anim_speed   = 0.18                    
         self._npc_child_frame  = 0
         self._npc_oldman_frame = 0
         self._npc_woman_frame  = 0
         self._npc_soldier_frame= 0
 
-        # Backward compat (tidak dipakai lagi tapi aman)
+                                                        
         self._townsfolk: list = []
 
-        # Wedding idle animation state (sprite beranimasi loop seperti NPC lain)
+                                                                                
         self._wedding_anim_timer  = 0.0
-        self._wedding_anim_speed  = 0.15   # detik per frame
+        self._wedding_anim_speed  = 0.15                    
         self._wedding_arga_frame  = 0
         self._wedding_elena_frame = 0
 
-        # Konfeti awal (akan aktif di fase town_wedding)
+                                                        
         for _ in range(80):
             self._confetti.append({
                 'x':         float(random.randint(0, W)),
@@ -455,39 +447,45 @@ class TrueEndScene(Scene):
             self._font_quote = pygame.font.Font(None, 22)
             self._font_ui    = pygame.font.Font(None, 16)
 
-        # Pending phase transition
+                                  
         self._pending_phase = ""
         self._waiting_fade  = False
 
-    # ── Asset wedding idle frames ────────────────────────────────────────────
+                                                                               
 
     def _get_wedding_frames(self, char: str) -> list:
-        """Ambil list frame animasi idle wedding dari assets."""
         if char == "arga":
             frames = getattr(self._game.assets, "arga_wedding_idle_frames", [])
         else:
             frames = getattr(self._game.assets, "elena_wedding_idle_frames", [])
         return frames if frames else []
 
-    # ── Transisi antar fase ──────────────────────────────────────────────────
+                                                                               
 
     def _go_to_phase(self, new_phase: str, fade_speed: int = 220):
         self._pending_phase = new_phase
         self._waiting_fade  = True
         self._transition.fade_out(speed=fade_speed)
 
-    # ── Lifecycle ────────────────────────────────────────────────────────────
+                                                                               
 
     def on_enter(self) -> None:
         self._transition.fade_in(color=(255, 255, 255), speed=180)
         self._narrator.show(["TRUE ENDING", "Savior of the World"], 3.0)
         self._dialogue.show(REST_DLGS[0][1], REST_DLGS[0][0])
-        # Semua karakter idle dari awal
-        self._player.set_walking(False)
+                                                                              
+                                                                                             
+        self._player._set_anim("hurt")
+        self._player._anim_once = False                                      
+        assets = self._game.assets
+        hurt_frames = getattr(assets, "arga_hurt_frames", [])
+        if hurt_frames:
+            self._player._frame_idx = len(hurt_frames) - 1                           
         for ch in (self._elena, self._reno, self._lyra, self._darius):
+            ch._hurt_pose = True                                                     
             ch.set_walking(False)
             ch.disable_follow()
-        # Set ukuran karakter utama 1.6 seperti scene lainnya
+                                                             
         self.set_char_scale(
             self._player, self._elena, self._reno, self._lyra, self._darius,
             scale=1.6
@@ -497,7 +495,7 @@ class TrueEndScene(Scene):
         except Exception:
             pass
 
-    # ── Input ────────────────────────────────────────────────────────────────
+                                                                               
 
     def handle_event(self, event: pygame.event.Event) -> None:
         if event.type == pygame.KEYDOWN:
@@ -505,7 +503,7 @@ class TrueEndScene(Scene):
                 if self._waiting_fade:
                     return
                 if self._phase == "final":
-                    # Kembali ke opening / title
+                                                
                     from scenes.opening_scene import OpeningScene
                     self._game.replace_scene(OpeningScene(self._game))
                     return
@@ -514,13 +512,15 @@ class TrueEndScene(Scene):
                 else:
                     self._advance()
 
-    # ── Advance dialog ───────────────────────────────────────────────────────
+                                                                               
 
     def _advance(self):
         try:
             self._game.assets.play("cursor")
         except Exception:
             pass
+        try: self._game.assets.play_sfx_file("space_enter_sfx")
+        except Exception: pass
 
         if self._phase == "rest":
             self._dlg_step += 1
@@ -528,7 +528,7 @@ class TrueEndScene(Scene):
                 spk, txt = REST_DLGS[self._dlg_step]
                 self._dialogue.show(txt, spk)
             else:
-                # Masuk proposal: Elena & Arga hadap-hadapan
+                                                            
                 self._dlg_step = 0
                 self._go_to_phase("proposal")
 
@@ -537,7 +537,7 @@ class TrueEndScene(Scene):
             if self._dlg_step < len(PROPOSAL_DLGS):
                 spk, txt = PROPOSAL_DLGS[self._dlg_step]
                 self._dialogue.show(txt, spk)
-                # Efek suara saat lamaran diterima
+                                                  
                 if self._dlg_step == 10:
                     try:
                         self._game.assets.play("magic")
@@ -559,11 +559,14 @@ class TrueEndScene(Scene):
                 self._go_to_phase("royal_hall")
 
         elif self._phase == "royal_hall":
+                                                          
+            if not self._rh_walkin_done:
+                return
             self._dlg_step += 1
             if self._dlg_step < len(ROYAL_HALL_DLGS):
                 spk, txt = ROYAL_HALL_DLGS[self._dlg_step]
                 self._dialogue.show(txt, spk)
-                if self._dlg_step == 12:  # Raja setujui
+                if self._dlg_step == 12:                
                     try:
                         self._game.assets.play("fanfare")
                     except Exception:
@@ -583,12 +586,12 @@ class TrueEndScene(Scene):
                     except Exception:
                         pass
             else:
-                # Masuk layar akhir
+                                   
                 self._phase = "final"
                 self._final_timer = 0.0
                 self._dialogue.hide()
 
-    # ── Update ───────────────────────────────────────────────────────────────
+                                                                               
 
     def update(self, dt: float) -> None:
         self._t += dt
@@ -596,7 +599,7 @@ class TrueEndScene(Scene):
         self._dialogue.update(dt)
         self._narrator.update(dt)
 
-        # Handle fade done → ganti phase
+                                        
         if self._waiting_fade and self._transition.done:
             self._waiting_fade  = False
             self._phase         = self._pending_phase
@@ -604,19 +607,47 @@ class TrueEndScene(Scene):
             self._dlg_step      = 0
             self._on_phase_enter()
 
-        # Update karakter
+                         
         self._player.update(dt)
         self._elena.update(dt)
         self._reno.update(dt)
         self._lyra.update(dt)
         self._darius.update(dt)
+
+                                                                         
+        if self._phase == "rest":
+            assets = self._game.assets
+                                                                
+            if self._player._anim_state != "hurt":
+                self._player._set_anim("hurt")
+                self._player._anim_once = False
+            hurt_frames = getattr(assets, "arga_hurt_frames", [])
+            if hurt_frames:
+                self._player._frame_idx = len(hurt_frames) - 1
+                self._player._anim_once = False
+                                                                             
+            for ch in (self._elena, self._reno, self._lyra, self._darius):
+                ch._hurt_pose = True
         self._king.update(dt)
         self._npc_child.update(dt)
         self._npc_oldman.update(dt)
         self._npc_woman.update(dt)
         self._npc_soldier.update(dt)
 
-        # Animasi idle hardcode NPC warga (aktif di town_wedding & final)
+                                                          
+        if self._phase == "royal_hall":
+            self._royal_anim_timer += dt
+            if self._royal_anim_timer >= 0.18:
+                self._royal_anim_timer = 0.0
+                assets = self._game.assets
+                king_f  = getattr(assets, "king_aldric_idle_frames", [])
+                mage_f  = getattr(assets, "mage_idle_frames", [])
+                kngt_f  = getattr(assets, "knight_idle_frames", [])
+                if king_f:  self._npc_king_frame   = (self._npc_king_frame   + 1) % len(king_f)
+                if mage_f:  self._npc_mage_frame   = (self._npc_mage_frame   + 1) % len(mage_f)
+                if kngt_f:  self._npc_knight_frame = (self._npc_knight_frame + 1) % len(kngt_f)
+
+                                                                         
         if self._phase in ("town_wedding", "final"):
             self._npc_anim_timer += dt
             if self._npc_anim_timer >= self._npc_anim_speed:
@@ -631,7 +662,7 @@ class TrueEndScene(Scene):
                 if woman_f:   self._npc_woman_frame   = (self._npc_woman_frame   + 1) % len(woman_f)
                 if soldier_f: self._npc_soldier_frame = (self._npc_soldier_frame + 1) % len(soldier_f)
 
-            # Animasi idle wedding Arga & Elena
+                                               
             self._wedding_anim_timer += dt
             if self._wedding_anim_timer >= self._wedding_anim_speed:
                 self._wedding_anim_timer = 0.0
@@ -642,14 +673,14 @@ class TrueEndScene(Scene):
                 if elena_frames:
                     self._wedding_elena_frame = (self._wedding_elena_frame + 1) % len(elena_frames)
 
-        # Walk-in untuk return_trip
-        self.update_walkin(dt)
+                                                  
+        walkin_just_done = (self._walkin_active and self.update_walkin(dt))
 
-        # Animasi walk saat walkin aktif
+                                        
         if self._walkin_active:
             self._player.set_walking(True, True)
         elif self._phase == "return_trip":
-            # Aktifkan follow setelah walkin selesai
+                                                    
             if not self._elena._follow_enabled:
                 self._elena.follow(self._player)
                 self._elena.follow_distance  = -90
@@ -666,12 +697,62 @@ class TrueEndScene(Scene):
                 self._darius.follow(self._player)
                 self._darius.follow_distance = -330
                 self._darius.enable_follow()
+        elif self._phase == "royal_hall":
+            if not self._walkin_active:
+                                                                                 
+                if not self._rh_walkin_done:
+                    self._rh_walkin_done = True
+                    self._player.set_walking(False)
+                    for ch in (self._player, self._elena, self._reno, self._lyra, self._darius):
+                        if hasattr(ch, "_facing_right"):
+                            ch._facing_right = True
+                        if hasattr(ch, "disable_follow"):
+                            ch.disable_follow()
+                                                  
+                    self._dlg_step = 0
+                    self._dialogue.show(ROYAL_HALL_DLGS[0][1], ROYAL_HALL_DLGS[0][0])
+                                                                             
+                if self._rh_walkin_done and not self._rh_retreat_done:
+                    if not self._rh_retreat_started:
+                        self._rh_retreat_timer += dt
+                        if self._rh_retreat_timer >= 1.2:
+                            self._rh_retreat_started = True
+                    else:
+                                                                  
+                        retreat_speed = 45.0
+                        W = self._game.W
+                        king_target  = float(W * 0.85)
+                        mage_target  = float(W * 0.95)
+                        knight_target = float(W * 0.90)
+                        done_count = 0
+                        if self._king._x < king_target:
+                            self._king._x = min(king_target, self._king._x + retreat_speed * dt)
+                            self._king._facing_right = True
+                        else:
+                            self._king._facing_right = False
+                            done_count += 1
+                        if self._mage._x < mage_target:
+                            self._mage._x = min(mage_target, self._mage._x + retreat_speed * dt)
+                            self._mage._facing_right = True
+                        else:
+                            done_count += 1
+                        if self._knight._x < knight_target:
+                            self._knight._x = min(knight_target, self._knight._x + retreat_speed * dt)
+                            self._knight._facing_right = True
+                        else:
+                            done_count += 1
+                        if done_count == 3:
+                            self._rh_retreat_done = True
+                                                                                
+                            self._king._facing_right   = False
+                            self._mage._facing_right   = False
+                            self._knight._facing_right = False
         else:
-            # Fase lain — matikan follow, karakter idle di posisinya
+                                                                    
             if not self._walkin_active:
                 self._player.set_walking(False)
 
-        # Konfeti (aktif di town_wedding & final)
+                                                 
         if self._phase in ("town_wedding", "final"):
             for c in self._confetti:
                 c['x'] += c['vx'] * dt
@@ -681,7 +762,7 @@ class TrueEndScene(Scene):
                     c['y'] = -15.0
                     c['x'] = float(random.randint(0, self._game.W))
 
-            # Kembang api
+                         
             self._fw_timer += dt
             if self._fw_timer > 0.55:
                 self._fw_timer = 0.0
@@ -694,38 +775,45 @@ class TrueEndScene(Scene):
                     p[3] += 110 * dt
             self._fireworks = [fw for fw in self._fireworks if fw['age'] < 1.4]
 
-        # Final fade-in teks
+                            
         if self._phase == "final":
             self._final_timer += dt
             self._final_alpha  = min(255, int(255 * self._final_timer / 2.0))
 
     def _on_phase_enter(self):
-        """Dipanggil tepat setelah fase berganti (setelah fade selesai)."""
-        # Pastikan karakter utama selalu di skala 1.6 di semua fase
+                                                                   
         self.set_char_scale(
             self._player, self._elena, self._reno, self._lyra, self._darius,
             scale=1.6
         )
 
         if self._phase == "proposal":
+                                                    
+            self._player._set_anim("idle")
+            for ch in (self._elena, self._reno, self._lyra, self._darius):
+                ch._hurt_pose = False
             self._transition.fade_in(speed=180)
             self._narrator.show(["Di Tengah Singgasana yang Sunyi..."], 2.0)
             self._dialogue.show(PROPOSAL_DLGS[0][1], PROPOSAL_DLGS[0][0])
-            # Posisikan Arga & Elena hadap-hadapan, party agak menjauh
+            self._game.assets.play_bgm("propose_theme", loop=-1, volume=0.7)
+                                                                      
             W, H = self._game.W, self._game.H
             gy = self._ground_y
-            self._player._x = W // 2 - 70
-            self._elena._x  = W // 2 + 70
-            self._reno._x   = 80
-            self._lyra._x   = W - 80
-            self._darius._x = 40
-            # Facing: Arga kanan, Elena kiri, party menghadap tengah
-            self._player._facing_right = True
-            self._elena._facing_right  = False
+                                                                 
+            self._elena._x  = W // 2 - 110
+            self._player._x = W // 2 + 110
+                                                                   
+            self._reno._x   = W // 2 - 280
+            self._darius._x = W // 2 - 420
+            self._lyra._x   = W // 2 + 300
+                                                                                          
+            self._elena._facing_right  = True
+            self._player._facing_right = False
+                                       
             self._reno._facing_right   = True
-            self._lyra._facing_right   = False
             self._darius._facing_right = True
-            # Matikan follow semua di fase ini
+            self._lyra._facing_right   = False
+                                              
             for ch in (self._elena, self._reno, self._lyra, self._darius):
                 ch.disable_follow()
             self._player.set_walking(False)
@@ -734,7 +822,7 @@ class TrueEndScene(Scene):
             self._transition.fade_in(speed=200)
             self._narrator.show(["Perjalanan Pulang ke Astravia"], 2.5)
             self._dialogue.show(RETURN_DLGS[0][1], RETURN_DLGS[0][0])
-            # Semua jalan masuk dari kiri
+                                         
             W = self._game.W
             self.start_walkin([
                 (self._player, W // 2 - 60),
@@ -747,40 +835,62 @@ class TrueEndScene(Scene):
         elif self._phase == "royal_hall":
             self._transition.fade_in(speed=180)
             self._narrator.show(["Balairung Kerajaan Astravia"], 2.5)
-            self._dialogue.show(ROYAL_HALL_DLGS[0][1], ROYAL_HALL_DLGS[0][0])
+            self._game.assets.play_bgm("sesudahperang_theme", loop=-1, volume=0.7)
             try:
                 self._game.assets.play("fanfare")
             except Exception:
                 pass
-            # Posisi di balairung: Raja di atas, party di bawah
+                                                                
+                                                                                   
+                                                                             
+                                                                          
+            for ch in (self._elena, self._reno, self._lyra, self._darius):
+                ch.disable_follow()
+            self._player.set_walking(False)
+                                           
+            self._rh_walkin_done     = False
+            self._rh_retreat_done    = False
+            self._rh_retreat_started = False
+            self._rh_retreat_timer   = 0.0
             W, H = self._game.W, self._game.H
             gy = self._ground_y
-            self._king._x     = W // 2
-            self._king._y     = int(H * 0.28)
-            self._player._x   = W // 2 - 60
-            self._elena._x    = W // 2 + 60
-            self._reno._x     = W // 2 - 160
-            self._lyra._x     = W // 2 + 160
-            self._darius._x   = W // 2 - 250
-            # Semua menghadap raja (kanan)
-            for ch in (self._player, self._elena, self._reno, self._lyra, self._darius):
-                if hasattr(ch, "_facing_right"):
-                    ch._facing_right = True
-                if hasattr(ch, "disable_follow"):
-                    ch.disable_follow()
-            self._player.set_walking(False)
+                                                                                                              
+            self._king._x     = float(W // 2 + 260)
+            self._king._y     = float(gy - 55)
+            self._king._facing_right = False
+            self._mage._x     = float(int(W * 0.78))
+            self._mage._y     = float(gy - 55)
+            self._mage._facing_right  = False
+            self._knight._x   = float(int(W * 0.68))
+            self._knight._y   = float(gy - 55)
+            self._knight._facing_right = False
+                                                                    
+            self.start_walkin([
+                (self._player,  W // 2 - 180),
+                (self._elena,   W // 2 - 80),
+                (self._reno,    W // 2 - 310),
+                (self._lyra,    W // 2 - 430),
+                (self._darius,  W // 2 - 540),
+            ])
+                                                                        
+                                                    
+            self._npc_king_frame   = 0
+            self._npc_mage_frame   = 0
+            self._npc_knight_frame = 0
+            self._royal_anim_timer = 0.0
 
         elif self._phase == "town_wedding":
             self._transition.fade_in(color=(255, 255, 255), speed=200)
             self._narrator.show(["Kota Astravia — Hari Perayaan"], 2.5)
             self._dialogue.show(TOWN_DLGS[0][1], TOWN_DLGS[0][0])
+            self._game.assets.play_bgm("wedding", loop=-1, volume=0.7)
             try:
                 self._game.assets.play("fanfare")
             except Exception:
                 pass
             W, H = self._game.W, self._game.H
             gy = self._ground_y
-            # Arga & Elena di tengah dalam gaun pengantin (sprite wedding)
+                                                                          
             self._player._x = W // 2 - 50
             self._elena._x  = W // 2 + 50
             self._player.emotion = "happy"
@@ -788,7 +898,7 @@ class TrueEndScene(Scene):
             self._reno._x   = W // 2 - 170
             self._lyra._x   = W // 2 + 170
             self._darius._x = W // 2 - 260
-            # Facing: Arga kanan, Elena kiri (hadap-hadapan), party ke tengah
+                                                                             
             self._player._facing_right = True
             self._elena._facing_right  = False
             self._reno._facing_right   = True
@@ -801,7 +911,7 @@ class TrueEndScene(Scene):
         elif self._phase == "final":
             self._transition.fade_in(speed=100)
 
-    # ── Spawn kembang api ────────────────────────────────────────────────────
+                                                                               
 
     def _spawn_firework(self):
         cx  = random.randint(80, self._game.W - 80)
@@ -819,88 +929,100 @@ class TrueEndScene(Scene):
         self._fireworks.append({'cx': cx, 'cy': cy, 'col': col,
                                 'particles': parts, 'age': 0.0})
 
-    # ── Draw ─────────────────────────────────────────────────────────────────
+                                                                               
 
     def draw(self, surface: pygame.Surface) -> None:
         W, H = self._game.W, self._game.H
 
-        # Background per fase
+                             
         if self._phase in ("rest", "proposal"):
             surface.blit(self._game.assets.bg_ruang_boss_rusak, (0, 0))
-        elif self._phase in ("return_trip", "royal_hall"):
+        elif self._phase == "return_trip":
+            surface.blit(self._game.assets.bg_forest, (0, 0))
+        elif self._phase == "royal_hall":
             surface.blit(self._game.assets.bg_belairung, (0, 0))
-        else:  # town_wedding, final
+        else:                       
             surface.blit(self._game.assets.bg_hari_pernikahan, (0, 0))
 
-        # ── Fase REST ────────────────────────────────────────────────────────
+                                                                               
         if self._phase == "rest":
-            # Semua karakter dalam keadaan lelah (emotion sad/normal, bisa saja
-            # karakter sudah punya state hurt — gambar saja biasa)
+                                                                               
+                                                                  
             for ch in (self._darius, self._lyra, self._reno, self._elena, self._player):
                 ch.draw(surface)
-            # Label kelelahan di atas kepala
+                                            
             self._draw_tired_labels(surface)
 
-        # ── Fase PROPOSAL ────────────────────────────────────────────────────
+                                                                               
         elif self._phase == "proposal":
-            # Party di pinggir, Arga & Elena berhadapan di tengah (idle front)
+                                                                 
+            self._darius.draw(surface)
             self._reno.draw(surface)
             self._lyra.draw(surface)
-            self._darius.draw(surface)
-            # Arga menghadap kanan, Elena menghadap kiri (flip horizontal)
+                                                                                 
+            self._elena.draw(surface)
             self._player.draw(surface)
-            self._draw_elena_facing(surface, face_left=True)
-            # Efek hati di antara mereka
+                                        
             self._draw_proposal_hearts(surface)
 
-        # ── Fase RETURN TRIP ─────────────────────────────────────────────────
+                                                                               
         elif self._phase == "return_trip":
             for ch in (self._darius, self._lyra, self._reno, self._elena, self._player):
                 ch.draw(surface)
 
-        # ── Fase ROYAL HALL ──────────────────────────────────────────────────
+                                                                               
         elif self._phase == "royal_hall":
-            self._king.draw(surface)
+                                          
             for ch in (self._darius, self._lyra, self._reno, self._elena, self._player):
                 ch.draw(surface)
+                                                                                          
+            self._draw_npc_frame(surface, "mage_idle_frames",        self._npc_mage_frame,
+                                 int(self._mage._x),   int(self._mage._y),   scale=1.6,
+                                 facing_right=self._mage._facing_right)
+            self._draw_npc_frame(surface, "knight_idle_frames",      self._npc_knight_frame,
+                                 int(self._knight._x), int(self._knight._y), scale=1.6,
+                                 facing_right=self._knight._facing_right)
+            self._draw_npc_frame(surface, "king_aldric_idle_frames", self._npc_king_frame,
+                                 int(self._king._x),   int(self._king._y),   scale=1.6,
+                                 facing_right=self._king._facing_right)
 
-        # ── Fase TOWN WEDDING ────────────────────────────────────────────────
+                                                                               
         elif self._phase in ("town_wedding", "final"):
-            # Kembang api & konfeti
+                                   
             self._draw_fireworks(surface)
             self._draw_confetti(surface)
 
-            # NPC warga kota — digambar dengan sprite animasi hardcode
-            # Kiri layar (menghadap kanan)
+                                                                      
+                                          
             self._draw_npc_frame(surface, "citizen_child_idle_frames", self._npc_child_frame,
                                  int(self._npc_child._x), int(self._npc_child._y),
-                                 facing_right=self._npc_child._facing_right)
+                                 scale=1.6, facing_right=self._npc_child._facing_right)
             self._draw_npc_frame(surface, "oldman_idle_frames", self._npc_oldman_frame,
                                  int(self._npc_oldman._x), int(self._npc_oldman._y),
-                                 facing_right=self._npc_oldman._facing_right)
-            # Kanan layar (menghadap kiri)
+                                 scale=1.6, facing_right=self._npc_oldman._facing_right)
+                                          
             self._draw_npc_frame(surface, "citizen_man_idle_frames", self._npc_woman_frame,
                                  int(self._npc_woman._x), int(self._npc_woman._y),
-                                 facing_right=self._npc_woman._facing_right)
+                                 scale=1.6, facing_right=self._npc_woman._facing_right)
             self._draw_npc_frame(surface, "soldier_idle_frames", self._npc_soldier_frame,
                                  int(self._npc_soldier._x), int(self._npc_soldier._y),
-                                 facing_right=self._npc_soldier._facing_right)
-            # Party
+                                 scale=1.6, facing_right=self._npc_soldier._facing_right)
+                   
             self._reno.draw(surface)
             self._lyra.draw(surface)
             self._darius.draw(surface)
 
-            # Arga & Elena dengan sprite pengantin (atau fallback primitif)
+                                                                           
             if self._phase == "town_wedding":
                 self._draw_wedding_characters(surface)
             else:
                 self._draw_wedding_characters(surface)
 
-            # Efek hati di atas pasangan pengantin
+                                                  
             if self._phase == "town_wedding":
                 self._draw_wedding_hearts(surface)
 
-        # ── Overlay FINAL ────────────────────────────────────────────────────
+                                                                               
         if self._phase == "final":
             ov = pygame.Surface((W, H), pygame.SRCALPHA)
             ov.fill((0, 0, 0, min(160, self._final_alpha)))
@@ -918,12 +1040,12 @@ class TrueEndScene(Scene):
                     surf.set_alpha(a2)
                     surface.blit(surf, (W // 2 - surf.get_width() // 2, y))
 
-        # UI umum
+                 
         self._narrator.draw(surface)
         self._dialogue.draw(surface)
         self._transition.draw(surface)
 
-        # Label lokasi
+                      
         lbl_map = {
             "rest":         "Singgasana Kegelapan — Setelah Pertempuran",
             "proposal":     "Singgasana Kegelapan — Momen Berdua",
@@ -939,13 +1061,10 @@ class TrueEndScene(Scene):
             except Exception:
                 pass
 
-    # ── Draw NPC frame helper ────────────────────────────────────────────────
+                                                                               
 
     def _draw_npc_frame(self, surface, frames_attr, frame_idx, x, y,
                         scale=1.4, facing_right=True):
-        """Gambar NPC dari frame list di assets, normalisasi ke 96px.
-        Skala 1.4 sedikit lebih kecil dari karakter utama agar perspektif wajar.
-        """
         SPRITE_BASE_H = 96
         frames = getattr(self._game.assets, frames_attr, [])
         if not frames:
@@ -963,10 +1082,9 @@ class TrueEndScene(Scene):
             scaled = pygame.transform.flip(scaled, True, False)
         surface.blit(scaled, (x - new_w // 2, y - new_h))
 
-    # ── Helper draw ──────────────────────────────────────────────────────────
+                                                                               
 
     def _draw_tired_labels(self, surface: pygame.Surface):
-        """Label kelelahan di atas kepala karakter saat fase rest."""
         chars_labels = [
             (self._player, "Arga"),
             (self._elena,  "Elena"),
@@ -978,7 +1096,7 @@ class TrueEndScene(Scene):
             f = pygame.font.SysFont("Georgia", 14, italic=True)
             for ch, name in chars_labels:
                 txt = f.render("z z z", True, (180, 200, 255))
-                # Posisi mengambang naik turun
+                                              
                 offset_y = int(math.sin(self._t * 2 + hash(name) % 10) * 5)
                 surface.blit(txt, (int(ch._x) - txt.get_width() // 2,
                                    int(ch._y) - 75 + offset_y))
@@ -986,20 +1104,18 @@ class TrueEndScene(Scene):
             pass
 
     def _draw_elena_facing(self, surface: pygame.Surface, face_left: bool = True):
-        """Gambar Elena menghadap kiri (flip) untuk scene proposal."""
-        # Elena draw biasa, lalu flip jika perlu
-        # Karena sistem draw karakter memakai sprite internal, kita buat surface temp
+                                                
+                                                                                     
         tmp = pygame.Surface((self._game.W, self._game.H), pygame.SRCALPHA)
         self._elena.draw(tmp)
         if face_left:
             tmp = pygame.transform.flip(tmp, True, False)
-            # Setelah flip, posisi x berubah — kita blit dengan offset
-            # flip horizontal: pixel di x menjadi (W - x - 1)
-            # karena kita flip seluruh surface, blit langsung ke surface
+                                                                      
+                                                             
+                                                                        
         surface.blit(tmp, (0, 0))
 
     def _draw_proposal_hearts(self, surface: pygame.Surface):
-        """Efek hati animasi antara Arga & Elena."""
         mid_x = (self._player._x + self._elena._x) // 2
         try:
             for i in range(4):
@@ -1013,13 +1129,8 @@ class TrueEndScene(Scene):
             pass
 
     def _draw_wedding_characters(self, surface: pygame.Surface):
-        """
-        Gambar Arga & Elena dalam pakaian pengantin dengan animasi idle.
-        Menggunakan arga_wedding_idle_frames / elena_wedding_idle_frames dari assets.
-        Fallback ke primitif jika frames tidak tersedia.
-        """
-        SPRITE_BASE_H = 96   # tinggi normalisasi (sama dengan NPC lain)
-        SCALE         = 1.6  # sama dengan skala karakter utama
+        SPRITE_BASE_H = 96                                              
+        SCALE         = 1.6                                    
 
         px, py = int(self._player._x), int(self._player._y)
         ex, ey = int(self._elena._x),  int(self._elena._y)
@@ -1027,7 +1138,7 @@ class TrueEndScene(Scene):
         arga_frames  = self._get_wedding_frames("arga")
         elena_frames = self._get_wedding_frames("elena")
 
-        # ── Arga ──
+                    
         if arga_frames:
             img = arga_frames[self._wedding_arga_frame % len(arga_frames)]
             orig_w, orig_h = img.get_size()
@@ -1037,12 +1148,12 @@ class TrueEndScene(Scene):
                 new_w   = int(norm_w * SCALE)
                 new_h   = int(SPRITE_BASE_H * SCALE)
                 scaled  = pygame.transform.scale(norm_img, (new_w, new_h))
-                # Arga menghadap kanan (default, tidak di-flip)
+                                                               
                 surface.blit(scaled, (px - new_w // 2, py - new_h))
         else:
             self._draw_primitive_groom(surface, px, py)
 
-        # ── Elena ──
+                     
         if elena_frames:
             img = elena_frames[self._wedding_elena_frame % len(elena_frames)]
             orig_w, orig_h = img.get_size()
@@ -1052,13 +1163,13 @@ class TrueEndScene(Scene):
                 new_w   = int(norm_w * SCALE)
                 new_h   = int(SPRITE_BASE_H * SCALE)
                 scaled  = pygame.transform.scale(norm_img, (new_w, new_h))
-                # Elena menghadap kiri (flip horizontal)
+                                                        
                 scaled  = pygame.transform.flip(scaled, True, False)
                 surface.blit(scaled, (ex - new_w // 2, ey - new_h))
         else:
             self._draw_primitive_bride(surface, ex, ey)
 
-        # Label nama di bawah pasangan
+                                      
         try:
             f = pygame.font.SysFont("Georgia", 14, bold=True)
             for name, cx in [("Arga", px), ("Elena", ex)]:
@@ -1069,55 +1180,52 @@ class TrueEndScene(Scene):
 
 
     def _draw_primitive_groom(self, surface: pygame.Surface, cx: int, cy: int):
-        """Jas pengantin sederhana (primitif) untuk Arga."""
-        # Kepala
+                
         pygame.draw.circle(surface, (220, 180, 140), (cx, cy - 55), 16)
-        # Badan jas putih
+                         
         body = pygame.Surface((44, 55), pygame.SRCALPHA)
         pygame.draw.rect(body, (240, 240, 250, 240), (0, 0, 44, 55), border_radius=4)
-        # Dasi kupu-kupu emas
+                             
         pygame.draw.polygon(body, (200, 160, 30),
                             [(18, 10), (22, 16), (18, 22), (10, 16)])
         pygame.draw.polygon(body, (200, 160, 30),
                             [(26, 10), (22, 16), (26, 22), (34, 16)])
         surface.blit(body, (cx - 22, cy - 45))
-        # Celana hitam
+                      
         pygame.draw.rect(surface, (30, 30, 40),
                          pygame.Rect(cx - 14, cy + 8, 28, 30), border_radius=3)
-        # Rambut
+                
         pygame.draw.arc(surface, (60, 40, 20),
                         pygame.Rect(cx - 16, cy - 73, 32, 24),
                         0, math.pi, 4)
 
     def _draw_primitive_bride(self, surface: pygame.Surface, cx: int, cy: int):
-        """Gaun pengantin sederhana (primitif) untuk Elena."""
-        # Kepala
+                
         pygame.draw.circle(surface, (230, 190, 150), (cx, cy - 55), 15)
-        # Mahkota sederhana
+                           
         crown_pts = [
             (cx - 12, cy - 72), (cx - 8, cy - 80), (cx, cy - 85),
             (cx + 8, cy - 80), (cx + 12, cy - 72),
         ]
         pygame.draw.polygon(surface, (220, 185, 30), crown_pts)
-        # Gaun putih mengembang
+                               
         skirt = pygame.Surface((70, 70), pygame.SRCALPHA)
         pygame.draw.ellipse(skirt, (255, 245, 250, 230), (0, 10, 70, 60))
         surface.blit(skirt, (cx - 35, cy - 15))
-        # Badan gaun
+                    
         body = pygame.Surface((36, 45), pygame.SRCALPHA)
         pygame.draw.rect(body, (250, 240, 248, 240), (0, 0, 36, 45), border_radius=5)
-        # Pita merah muda di pinggang
+                                     
         pygame.draw.rect(body, (255, 160, 180, 200),
                          pygame.Rect(0, 28, 36, 8), border_radius=3)
         surface.blit(body, (cx - 18, cy - 45))
-        # Rambut panjang
+                        
         for i in range(3):
             ox = (i - 1) * 8
             pygame.draw.line(surface, (140, 80, 30),
                              (cx + ox, cy - 62), (cx + ox + 4, cy + 5), 3)
 
     def _draw_wedding_hearts(self, surface: pygame.Surface):
-        """Hati besar di atas pasangan pengantin saat perayaan."""
         mid_x = (self._player._x + self._elena._x) / 2
         try:
             for i in range(6):

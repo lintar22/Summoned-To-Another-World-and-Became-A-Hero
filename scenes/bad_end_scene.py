@@ -1,21 +1,3 @@
-"""
-scenes/bad_end_scene.py
-=======================
-BAD ENDING — Dipanggil setelah seluruh party gugur di final chapter.
-
-Alur:
-  demon_gloat   → Singgasana boss: Raja Iblis mengejek & menertawakan para pahlawan
-                  yang KO di hadapannya
-  regret        → Adegan penyesalan — semua dalam keadaan hurt, hening yang berat
-  ruin_narration→ Narasi gelap mendalam + visual kerajaan Astravia hancur lebur
-  final         → Layar penutup BAD END
-
-BGM:
-  Ganti path di konstanta BGM_* di bawah sesuai file musik yang kamu punya.
-  Format yang didukung pygame.mixer: .ogg, .mp3, .wav
-  Isi BGM_GLOAT untuk fase demon_gloat/regret,
-  dan BGM_RUIN untuk fase narasi ruin (lebih ambient/dark).
-"""
 
 import pygame
 import math
@@ -25,26 +7,30 @@ from engine.colors import *
 from ui.components import DialogueBox, TransitionScreen, NarratorBox
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
-#  BGM SLOT — Ganti path di sini setelah asset musik tersedia
-# ═══════════════════════════════════════════════════════════════════════════════
+                                                                                 
+                                                             
+                                                                                 
 
-# BGM untuk fase demon_gloat dan regret (suasana kekalahan, mencekam)
-BGM_GLOAT = "assets/bgm/bad_end_gloat.ogg"   # ← ganti sesuai file kamu
+                                                              
+BGM_GLOAT  = "game_over_theme"
 
-# BGM untuk fase ruin_narration (ambient dark, tanpa melodi jelas, kehancuran)
-BGM_RUIN  = "assets/bgm/bad_end_ruin.wav"    # ← ganti sesuai file kamu
+                                                    
+BGM_REGRET = "regret_theme"
 
-# Volume masing-masing BGM (0.0 – 1.0)
-BGM_GLOAT_VOLUME = 0.75
-BGM_RUIN_VOLUME  = 0.65
+                                                     
+BGM_RUIN   = "ruin_theme"
+
+                                      
+BGM_GLOAT_VOLUME  = 0.75
+BGM_REGRET_VOLUME = 0.70
+BGM_RUIN_VOLUME   = 0.65
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
-#  Dialog & Narasi
-# ═══════════════════════════════════════════════════════════════════════════════
+                                                                                 
+                  
+                                                                                 
 
-# Demon King mengejek party yang KO di singgasananya
+                                                    
 GLOAT_DLGS = [
     ("Demon King", "...Hahaha."),
     ("Demon King", "Ini dia. Sang 'pahlawan' dari dunia lain yang begitu diagung-agungkan."),
@@ -69,7 +55,7 @@ GLOAT_DLGS = [
     
 ]
 
-# Penyesalan dalam keheningan
+                             
 REGRET_DLGS = [
     ("SYSTEM",  "...Hening. Hanya suara nafas terengah-engah yang tersisa."),
     ("Reno",    "...Keughhh...aku... harusnya lebih cepat."),
@@ -87,30 +73,30 @@ REGRET_DLGS = [
     ("SYSTEM",  "Dan di luar sana — dunia mulai terbakar."),
 ]
 
-# Narasi kehancuran Astravia — tiap baris muncul fade-in/hold/fade-out
-# Kosongkan string untuk jeda visual tanpa teks
+                                                                      
+                                               
 RUIN_NARRATIONS = [
-    # Blok 1 — Waktu
+                    
     "Tiga hari.",
     "Hanya tiga hari yang Raja Iblis butuhkan.",
     "",
-    # Blok 2 — Serangan
+                       
     "Pasukan kegelapan mengalir dari kastil seperti air bah yang tak bisa dibendung.",
     "Kota-kota yang pernah bercahaya padam satu per satu...seperti lilin ditiup angin.",
     "Ladang-ladang terbakar. Sungai mengering. Langit berubah merah.",
     "",
-    # Blok 3 — Kerajaan
+                       
     "Balairung Kerajaan Astravia yang megah roboh sebelum fajar hari kedua.",
     "Raja Aldric tidak melarikan diri. Ia memilih berdiri di takhta terakhirnya.",
     "Tidak ada yang tahu apa yang terjadi padanya setelah malam itu.",
     "Tidak ada yang berani mencari tahu.",
     "",
-    # Blok 4 — Rakyat
+                     
     "Para warga yang tersisa berlari ke hutan — tanpa arah, tanpa harapan.",
     "Anak-anak yang pernah bermain di alun-alun kota kini bersembunyi dalam kegelapan.",
     "Nama-nama yang dulu dipanggil penuh kasih...kini hilang tanpa jejak.",
     "",
-    # Blok 5 — Party
+                    
     "Reno.",
     "Lyra.",
     "Darius.",
@@ -118,7 +104,7 @@ RUIN_NARRATIONS = [
     "Nama-nama yang seharusnya dikenang sebagai pahlawan —",
     "— ditelan kegelapan bersama dunia yang mereka gagal selamatkan.",
     "",
-    # Blok 6 — Arga
+                   
     "Dan Arga.",
     "Sang pahlawan yang dipanggil melintasi dunia.",
     "Yang datang dengan pedang, harapan, dan satu tekad yang terlalu besar untuk tubuhnya.",
@@ -127,7 +113,7 @@ RUIN_NARRATIONS = [
     "Bukan sebagai pemenang.",
     "Hanya sebagai seorang anak muda yang membuat satu keputusan yang salah.",
     "",
-    # Blok 7 — Penutup gelap
+                            
     "Manusia selalu berkata bahwa setiap kehidupan memiliki makna.",
     "Tapi tidak ada yang pernah menjelaskan...",
     "bagaimana rasanya menjadi seseorang",
@@ -161,64 +147,60 @@ RUIN_NARRATIONS = [
 
 
 class BadEndScene(Scene):
-    """
-    Bad Ending Scene.
-    Dipanggil oleh final_chapter_scene setelah seluruh party gugur.
-    """
 
     def __init__(self, game):
         super().__init__(game)
         self._t          = 0.0
         self._dlg_step   = 0
-        # Fase: demon_gloat → regret → ruin_narration → final
+                                                             
         self._phase      = "demon_gloat"
 
         self._dialogue   = DialogueBox(game.W, game.H)
         self._transition = TransitionScreen(game.W, game.H)
         self._narrator   = NarratorBox(game.W, game.H)
 
-        # Narasi ruin
+                     
         self._narr_index = 0
         self._narr_timer = 0.0
         self._narr_alpha = 0
-        self._narr_phase = "fade_in"   # fade_in → hold → fade_out → next
+        self._narr_phase = "fade_in"                                     
 
-        # Final
+               
         self._final_timer = 0.0
         self._final_alpha = 0
 
-        # Partikel
+                  
         self._ashes:  list[dict] = []
         self._embers: list[dict] = []
-        self._blood_drops: list[dict] = []  # cipratan gelap di fase gloat
+        self._blood_drops: list[dict] = []                                
         self._build_particles()
 
-        # Karakter — posisi SAMA PERSIS dengan BossBattleScene
+                                                              
         from entities.characters import Player, PartyNPC, BossNPC
         W, H = game.W, game.H
         self._ground_y = int(H * 0.82)
         gy = self._ground_y
 
-        # Konstanta layout identik BossBattleScene
+                                                  
         self._CHAR_SCALE         = 1.6
         self._BOSS_SPRITE_SCALE  = 2.2
-        # depth scales: elena=slot0, reno=slot1, lyra=slot2, darius=slot3
+                                                                         
         self._PARTY_DEPTH_SCALES = [0.82 * 1.6, 1.0 * 1.6, 0.82 * 1.6, 1.0 * 1.6]
         _PARTY_FORMATION = [
-            (-90,  -20),   # slot 0 — Elena
-            ( 60,  -15),   # slot 1 — Reno
-            (-160, -10),   # slot 2 — Lyra
-            ( 120,   15),  # slot 3 — Darius
+            (-90,  -20),                   
+            ( 60,  -15),                  
+            (-160, -10),                  
+            ( 120,   15),                   
         ]
         arga_x = int(W * 0.20)
         boss_x = int(W * 0.72)
         self._arga_x = arga_x
         self._boss_x = boss_x
 
-        # Boss (Raja Iblis) — posisi sama dengan boss_battle_scene
+                                                                  
         self._boss = BossNPC(boss_x, gy)
 
-        # Arga
+              
         self._player = Player(arga_x, gy)
         self._player.before_isekai = False
         self._player._anim_state = "hurt"
@@ -226,13 +208,13 @@ class BadEndScene(Scene):
         self._player._anim_once  = True
         self._player._anim_done  = True
 
-        # Party — posisi dari formation offset terhadap arga_x
+                                                              
         self._elena  = PartyNPC("Elena",  arga_x + _PARTY_FORMATION[0][0], gy + _PARTY_FORMATION[0][1])
         self._reno   = PartyNPC("Reno",   arga_x + _PARTY_FORMATION[1][0], gy + _PARTY_FORMATION[1][1])
         self._lyra   = PartyNPC("Lyra",   arga_x + _PARTY_FORMATION[2][0], gy + _PARTY_FORMATION[2][1])
         self._darius = PartyNPC("Darius", arga_x + _PARTY_FORMATION[3][0], gy + _PARTY_FORMATION[3][1])
 
-        # Daftar party dengan depth scale untuk draw
+                                                    
         self._party_list = [
             (self._elena,  self._PARTY_DEPTH_SCALES[0]),
             (self._reno,   self._PARTY_DEPTH_SCALES[1]),
@@ -240,36 +222,41 @@ class BadEndScene(Scene):
             (self._darius, self._PARTY_DEPTH_SCALES[3]),
         ]
 
-        # Set KO state semua party non-Arga
+                                           
         for ch in (self._elena, self._reno, self._lyra, self._darius):
             ch._knocked_out = True
 
-        # HP party sudah di-set oleh BattleScene sebelum masuk BadEndScene
+                                                                          
 
-        # Shake dramatis
+                        
         self._shake_timer = 0.0
         self._shake_x     = 0
 
-        # Pending phase
+                       
         self._pending_phase = ""
         self._waiting_fade  = False
 
-        # Ruin visual
+                     
         self._ruin_debris = self._gen_ruin_debris(W, H)
         self._crack_lines = self._gen_crack_lines(W, H)
 
-        # Slideshow BG untuk ruin_narration
-        # Urutan: kota_hancur → dalam_belairung_hancur
+                                                              
+        self._dark_orbs:   list[dict] = []                                
+        self._void_sparks: list[dict] = []                              
+        self._shadow_tendrils: list[dict] = []                                  
+
+                                           
+                                                      
         self._ruin_slides = ["bg_kota_hancur", "bg_dalam_belairung_hancur"]
-        self._ruin_slide_idx   = 0       # indeks slide aktif
-        self._ruin_slide_timer = 0.0     # timer per slide
-        self._ruin_slide_fade  = 0       # alpha overlay transisi (0=penuh tampil, 255=hitam)
-        self._ruin_slide_state = "show"  # "show" | "fadeout" | "fadein"
-        # Durasi tiap slide dalam detik sebelum pindah ke slide berikutnya
-        _RUIN_SLIDE_DURATIONS = [22.0, 999.0]  # slide terakhir tahan sampai narasi habis
+        self._ruin_slide_idx   = 0                           
+        self._ruin_slide_timer = 0.0                      
+        self._ruin_slide_fade  = 0                                                           
+        self._ruin_slide_state = "show"                                 
+                                                                          
+        _RUIN_SLIDE_DURATIONS = [22.0, 999.0]                                            
         self._ruin_slide_durations = _RUIN_SLIDE_DURATIONS
 
-        # BGM state
+                   
         self._bgm_current = ""
 
         try:
@@ -289,30 +276,25 @@ class BadEndScene(Scene):
             self._font_hint   = pygame.font.Font(None, 17)
             self._font_ui     = pygame.font.Font(None, 16)
 
-    # ── BGM ──────────────────────────────────────────────────────────────────
+                                                                               
 
-    def _play_bgm(self, path: str, volume: float, loops: int = -1):
-        """Load dan play BGM. Aman jika file tidak ditemukan."""
-        if self._bgm_current == path:
+    def _play_bgm(self, key: str, volume: float, loops: int = -1):
+        if self._bgm_current == key:
             return
         try:
-            pygame.mixer.music.load(path)
-            pygame.mixer.music.set_volume(volume)
-            pygame.mixer.music.play(loops)
-            self._bgm_current = path
+            self._game.assets.play_bgm(key, loop=loops, volume=volume)
+            self._bgm_current = key
         except Exception:
-            # File belum ada — lanjut tanpa musik
             pass
 
     def _stop_bgm(self, fadeout_ms: int = 1500):
-        """Stop BGM dengan fadeout."""
         try:
             pygame.mixer.music.fadeout(fadeout_ms)
         except Exception:
             pass
         self._bgm_current = ""
 
-    # ── Partikel & visual ────────────────────────────────────────────────────
+                                                                               
 
     def _build_particles(self):
         W, H = self._game.W, self._game.H
@@ -335,7 +317,7 @@ class BadEndScene(Scene):
                 'max':  2.5,
                 'col':  random.choice([(210, 60, 10), (255, 120, 15), (255, 40, 5)]),
             })
-        # Cipratan darah / energi gelap di lantai singgasana
+                                                            
         for _ in range(20):
             self._blood_drops.append({
                 'x': float(random.randint(40, self._game.W - 40)),
@@ -365,7 +347,6 @@ class BadEndScene(Scene):
         return debris
 
     def _gen_crack_lines(self, W: int, H: int) -> list:
-        """Garis retakan di dinding/lantai — memperkuat feel kehancuran."""
         lines = []
         for _ in range(18):
             sx = random.randint(0, W)
@@ -385,7 +366,7 @@ class BadEndScene(Scene):
                           'width': random.choice([1, 1, 2])})
         return lines
 
-    # ── Transisi fase ────────────────────────────────────────────────────────
+                                                                               
 
     def _go_to_phase(self, new_phase: str, speed: int = 210,
                      color: tuple = (0, 0, 0)):
@@ -393,20 +374,20 @@ class BadEndScene(Scene):
         self._waiting_fade  = True
         self._transition.fade_out(color=color, speed=speed)
 
-    # ── Lifecycle ────────────────────────────────────────────────────────────
+                                                                               
 
     def on_enter(self) -> None:
         self._transition.fade_in(color=(0, 0, 0), speed=130)
         self._narrator.show(["BAD ENDING", "The Heroes Have Fallen"], 3.0)
         self._dialogue.show(GLOAT_DLGS[0][1], GLOAT_DLGS[0][0])
-        # Mulai BGM fase gloat
+                              
         self._play_bgm(BGM_GLOAT, BGM_GLOAT_VOLUME)
         try:
             self._game.assets.play("damage")
         except Exception:
             pass
 
-    # ── Input ────────────────────────────────────────────────────────────────
+                                                                               
 
     def handle_event(self, event: pygame.event.Event) -> None:
         if event.type == pygame.KEYDOWN:
@@ -419,7 +400,7 @@ class BadEndScene(Scene):
                     self._game.replace_scene(OpeningScene(self._game))
                     return
                 if self._phase == "ruin_narration":
-                    # Skip narasi ini langsung ke yang berikutnya
+                                                                 
                     self._narr_timer = 999.0
                     return
                 if not self._dialogue.is_finished:
@@ -427,20 +408,22 @@ class BadEndScene(Scene):
                 else:
                     self._advance()
 
-    # ── Advance dialog ───────────────────────────────────────────────────────
+                                                                               
 
     def _advance(self):
         try:
             self._game.assets.play("cursor")
         except Exception:
             pass
+        try: self._game.assets.play_sfx_file("space_enter_sfx")
+        except Exception: pass
 
         if self._phase == "demon_gloat":
             self._dlg_step += 1
             if self._dlg_step < len(GLOAT_DLGS):
                 spk, txt = GLOAT_DLGS[self._dlg_step]
                 self._dialogue.show(txt, spk)
-                # Shake saat Demon King berbicara paling keras
+                                                              
                 if self._dlg_step in (6, 14, 16):
                     self._shake_timer = 0.45
                 if self._dlg_step == 16:
@@ -461,7 +444,7 @@ class BadEndScene(Scene):
                 self._dlg_step = 0
                 self._go_to_phase("ruin_narration", speed=150)
 
-    # ── Update ───────────────────────────────────────────────────────────────
+                                                                               
 
     def update(self, dt: float) -> None:
         self._t += dt
@@ -469,7 +452,7 @@ class BadEndScene(Scene):
         self._dialogue.update(dt)
         self._narrator.update(dt)
 
-        # Ganti fase setelah fade selesai
+                                         
         if self._waiting_fade and self._transition.done:
             self._waiting_fade  = False
             self._phase         = self._pending_phase
@@ -477,7 +460,7 @@ class BadEndScene(Scene):
             self._dlg_step      = 0
             self._on_phase_enter()
 
-        # Update karakter — Arga freeze di hurt_3
+                                                 
         self._player.update(dt)
         self._player._anim_state = "hurt"
         self._player._frame_idx  = 2
@@ -488,14 +471,14 @@ class BadEndScene(Scene):
         self._darius.update(dt)
         self._boss.update(dt)
 
-        # Shake
+               
         if self._shake_timer > 0:
             self._shake_timer -= dt
             self._shake_x = random.randint(-6, 6) if self._shake_timer > 0 else 0
         else:
             self._shake_x = 0
 
-        # Abu
+             
         for a in self._ashes:
             a['x'] += a['vx'] * dt
             a['y'] += a['vy'] * dt
@@ -503,14 +486,14 @@ class BadEndScene(Scene):
                 a['y'] = -12.0
                 a['x'] = float(random.randint(0, self._game.W))
 
-        # Bara
+              
         for e in self._embers:
             e['x']  += e['vx'] * dt
             e['y']  += e['vy'] * dt
             e['vy'] += 50 * dt
             e['life'] -= dt
         self._embers = [e for e in self._embers if e['life'] > 0]
-        # Spawn bara baru di ruin_narration
+                                           
         if self._phase == "ruin_narration":
             while len(self._embers) < 55:
                 W, H = self._game.W, self._game.H
@@ -525,18 +508,94 @@ class BadEndScene(Scene):
                                           (255, 30, 0), (180, 40, 0)]),
                 })
 
-        # Narasi ruin
+                                                                                                
+        if self._phase == "ruin_narration":
+            W, H = self._game.W, self._game.H
+                                                                    
+            for orb in self._dark_orbs:
+                orb['x'] += orb['vx'] * dt
+                orb['y'] += math.sin(self._t * orb['freq'] + orb['phase']) * orb['amp'] * dt
+                orb['y'] -= orb['rise'] * dt
+                orb['life'] -= dt
+                if orb['life'] <= 0 or orb['y'] < -40:
+                    orb['x']    = float(random.randint(0, W))
+                    orb['y']    = float(random.randint(int(H * 0.5), H))
+                    orb['life'] = random.uniform(3.0, 7.0)
+            while len(self._dark_orbs) < 18:
+                self._dark_orbs.append({
+                    'x':     float(random.randint(0, W)),
+                    'y':     float(random.randint(int(H * 0.3), H)),
+                    'vx':    random.uniform(-18, 18),
+                    'rise':  random.uniform(8, 30),
+                    'freq':  random.uniform(0.8, 2.5),
+                    'amp':   random.uniform(15, 45),
+                    'phase': random.uniform(0, math.pi * 2),
+                    'r':     random.randint(6, 18),
+                    'col':   random.choice([
+                        (20, 0, 40), (40, 0, 60), (10, 0, 30),
+                        (50, 0, 80), (30, 0, 50),
+                    ]),
+                    'life':  random.uniform(3.0, 7.0),
+                })
+                                                                 
+            for sp in self._void_sparks:
+                sp['x']   += sp['vx'] * dt
+                sp['y']   += sp['vy'] * dt
+                sp['vy']  -= 15 * dt                             
+                sp['life'] -= dt
+            self._void_sparks = [s for s in self._void_sparks if s['life'] > 0]
+            while len(self._void_sparks) < 40:
+                self._void_sparks.append({
+                    'x':   float(random.randint(0, W)),
+                    'y':   float(H + 5),
+                    'vx':  random.uniform(-35, 35),
+                    'vy':  random.uniform(-90, -25),
+                    'life': random.uniform(0.4, 1.8),
+                    'max': 1.8,
+                    'col': random.choice([
+                        (80, 0, 120), (100, 0, 160), (60, 0, 100),
+                        (120, 0, 200), (40, 0, 80), (160, 20, 255),
+                    ]),
+                    'r':   random.randint(2, 5),
+                })
+                                                                           
+            for td in self._shadow_tendrils:
+                td['progress'] += td['speed'] * dt
+                td['wobble']   += dt
+                td['life']     -= dt
+            self._shadow_tendrils = [
+                t for t in self._shadow_tendrils if t['life'] > 0 and t['progress'] < 1.5
+            ]
+            if random.random() < dt * 3.5:
+                bx = float(random.randint(30, W - 30))
+                self._shadow_tendrils.append({
+                    'bx':      bx,
+                    'by':      float(H),
+                    'height':  random.randint(int(H * 0.25), int(H * 0.65)),
+                    'wobble':  random.uniform(0, math.pi * 2),
+                    'wfreq':   random.uniform(1.5, 4.0),
+                    'wamp':    random.randint(10, 30),
+                    'progress': 0.0,
+                    'speed':   random.uniform(0.25, 0.55),
+                    'col':     random.choice([
+                        (25, 0, 45, 160), (40, 0, 70, 140),
+                        (15, 0, 35, 180), (60, 0, 100, 120),
+                    ]),
+                    'width':   random.randint(2, 5),
+                    'life':    random.uniform(1.5, 3.5),
+                })
+
+                     
         if self._phase == "ruin_narration":
             self._update_ruin_narration(dt)
             self._update_ruin_slideshow(dt)
 
-        # Final fade in
+                       
         if self._phase == "final":
             self._final_timer += dt
             self._final_alpha  = min(255, int(255 * self._final_timer / 2.8))
 
     def _update_ruin_narration(self, dt: float):
-        """Mesin animasi fade-in → hold → fade-out per baris narasi."""
         self._narr_timer += dt
 
         if self._narr_phase == "fade_in":
@@ -548,9 +607,9 @@ class BadEndScene(Scene):
         elif self._narr_phase == "hold":
             self._narr_alpha = 255
             txt = RUIN_NARRATIONS[self._narr_index] if self._narr_index < len(RUIN_NARRATIONS) else ""
-            # Baris kosong = jeda pendek, baris normal = hold lebih lama
+                                                                        
             hold = 0.6 if txt == "" else 3.2
-            # Baris penutup tahan lebih lama
+                                            
             if self._narr_index >= len(RUIN_NARRATIONS) - 3:
                 hold = 4.0
             if self._narr_timer >= hold:
@@ -562,7 +621,7 @@ class BadEndScene(Scene):
             if self._narr_timer >= 0.85:
                 self._narr_index += 1
                 if self._narr_index >= len(RUIN_NARRATIONS):
-                    # Narasi selesai → masuk final
+                                                  
                     self._phase       = "final"
                     self._final_timer = 0.0
                 else:
@@ -570,12 +629,14 @@ class BadEndScene(Scene):
                     self._narr_timer = 0.0
 
     def _on_phase_enter(self):
-        """Dipanggil tepat setelah fase baru dimulai (post-fade)."""
         if self._phase == "regret":
             self._transition.fade_in(speed=150)
             self._narrator.show(["Di Dalam Kegelapan yang Tersisa..."], 2.0)
             self._dialogue.show(REGRET_DLGS[0][1], REGRET_DLGS[0][0])
-            # Posisi phase regret: semua karakter di tengah layar
+                                                                  
+            self._stop_bgm(fadeout_ms=1500)
+            self._play_bgm(BGM_REGRET, BGM_REGRET_VOLUME)
+                                                                 
             W = self._game.W
             cx = W // 2
             self._player._x  = cx
@@ -590,49 +651,49 @@ class BadEndScene(Scene):
             self._narr_timer = 0.0
             self._narr_alpha = 0
             self._narr_phase = "fade_in"
-            # Reset slideshow BG
+                                
             self._ruin_slide_idx   = 0
             self._ruin_slide_timer = 0.0
             self._ruin_slide_fade  = 0
             self._ruin_slide_state = "show"
-            # Ganti BGM ke suasana ruin yang lebih ambient
+                                                          
             self._stop_bgm(fadeout_ms=2000)
             self._play_bgm(BGM_RUIN, BGM_RUIN_VOLUME)
 
         elif self._phase == "final":
-            pass  # handled di update
+            pass                     
 
-    # ── Draw ─────────────────────────────────────────────────────────────────
+                                                                               
 
     def draw(self, surface: pygame.Surface) -> None:
         W, H = self._game.W, self._game.H
         sx   = self._shake_x
 
-        # ── DEMON GLOAT ──────────────────────────────────────────────────────
+                                                                               
         if self._phase == "demon_gloat":
             surface.blit(self._game.assets.bg_ruang_boss_rusak, (sx, 0))
-            # Overlay merah gelap menyelimuti singgasana
+                                                        
             dark = pygame.Surface((W, H), pygame.SRCALPHA)
             dark.fill((40, 0, 0, 90))
             surface.blit(dark, (0, 0))
-            # Cipratan energi gelap di lantai
+                                             
             self._draw_blood_drops(surface)
-            # Retakan dinding
+                             
             self._draw_crack_lines(surface)
-            # Party KO di kiri (depth order: belakang dulu)
+                                                           
             for ch, ds in reversed(self._party_list):
                 self.draw_char_scaled(surface, ch, ds)
             self.draw_char_scaled(surface, self._player, self._CHAR_SCALE)
-            # Boss masih berdiri — angkuh (scale 2.2)
+                                                     
             self.draw_char_scaled(surface, self._boss, self._BOSS_SPRITE_SCALE)
             self._draw_ko_labels(surface)
-            # Abu melayang
+                          
             self._draw_ashes(surface)
 
-        # ── REGRET ───────────────────────────────────────────────────────────
+                                                                               
         elif self._phase == "regret":
             surface.blit(self._game.assets.bg_ruang_boss_rusak, (sx, 0))
-            # Overlay hitam pekat — tidak ada cahaya harapan
+                                                            
             dark = pygame.Surface((W, H), pygame.SRCALPHA)
             dark.fill((0, 0, 0, 140))
             surface.blit(dark, (0, 0))
@@ -641,19 +702,23 @@ class BadEndScene(Scene):
                 self.draw_char_scaled(surface, ch, ds)
             self.draw_char_scaled(surface, self._player, self._CHAR_SCALE)
             self._draw_ashes(surface)
-            # Efek mata merah redup di atas Arga — menggambarkan rasa bersalah
+                                                                              
             self._draw_guilt_aura(surface)
 
-        # ── RUIN NARRATION ───────────────────────────────────────────────────
+                                                                               
         elif self._phase == "ruin_narration":
-            # Slideshow BG menggantikan semua partikel & debris
+                                                               
             self._draw_ruin_slideshow(surface)
-            # Vignette gelap di tepi layar
+                                                                                       
+            self._draw_darkness_particles(surface)
+                                         
+            self._draw_embers(surface)
+                                          
             self._draw_vignette(surface)
-            # Narasi
+                    
             self._draw_narration_text(surface)
 
-        # ── FINAL ────────────────────────────────────────────────────────────
+                                                                               
         elif self._phase == "final":
             self._draw_ruin_background(surface)
             self._draw_fire_backdrop(surface)
@@ -666,12 +731,14 @@ class BadEndScene(Scene):
                 a2 = min(255, (self._final_alpha - 70) * 3)
                 self._draw_final_text(surface, a2)
 
-        # UI umum
+                 
         self._narrator.draw(surface)
-        self._dialogue.draw(surface)
+                                                                                               
+        if self._phase != "ruin_narration":
+            self._dialogue.draw(surface)
         self._transition.draw(surface)
 
-        # Label lokasi
+                      
         lbl_map = {
             "Final Chapter": "Singgasana Kegelapan — Setelah Kekalahan",
             "Final Chapter":  "Singgasana Kegelapan — Dalam Keheningan",
@@ -684,7 +751,7 @@ class BadEndScene(Scene):
             except Exception:
                 pass
 
-    # ── Helper draw ──────────────────────────────────────────────────────────
+                                                                               
 
     def _draw_ko_labels(self, surface: pygame.Surface):
         chars = [
@@ -698,14 +765,13 @@ class BadEndScene(Scene):
             f = pygame.font.SysFont("Georgia", 13, bold=True)
             for ch, name in chars:
                 t = f.render("✕  KO", True, (200, 40, 40))
-                # Karakter discale 1.6x dari ~96px = ~153px tinggi, label di atasnya
+                                                                                    
                 surface.blit(t, (int(ch._x) - t.get_width() // 2,
                                  int(ch._y) - 160))
         except Exception:
             pass
 
     def _draw_blood_drops(self, surface: pygame.Surface):
-        """Cipratan energi gelap di lantai singgasana."""
         for d in self._blood_drops:
             s = pygame.Surface((d['r'] * 2, d['r'] * 2), pygame.SRCALPHA)
             pygame.draw.ellipse(s, (*d['col'], 160),
@@ -713,7 +779,6 @@ class BadEndScene(Scene):
             surface.blit(s, (int(d['x']) - d['r'], int(d['y']) - d['r'] // 2))
 
     def _draw_crack_lines(self, surface: pygame.Surface):
-        """Retakan di dinding/lantai."""
         for ln in self._crack_lines:
             if len(ln['pts']) < 2:
                 continue
@@ -726,7 +791,6 @@ class BadEndScene(Scene):
                 pass
 
     def _draw_guilt_aura(self, surface: pygame.Surface):
-        """Efek aura gelap merah redup di sekitar Arga — visual rasa bersalah."""
         px, py = int(self._player._x), int(self._player._y)
         pulse  = math.sin(self._t * 2.2) * 0.5 + 0.5
         for r in range(50, 10, -8):
@@ -751,41 +815,38 @@ class BadEndScene(Scene):
             surface.blit(s, (int(e['x']) - sz, int(e['y']) - sz))
 
     def _draw_fire_backdrop(self, surface: pygame.Surface):
-        """Api besar di sepanjang bawah layar — kerajaan terbakar."""
         W, H = self._game.W, self._game.H
         for i in range(14):
             fx = int(i * (W // 14) + math.sin(self._t * 2.8 + i * 0.9) * 22)
             fh = int(80 + math.sin(self._t * 4.0 + i * 0.7) * 45)
-            # Api luar (gelap, tebal)
+                                     
             col_a = int(120 + 70 * abs(math.sin(self._t * 3.5 + i)))
             s = pygame.Surface((40, fh), pygame.SRCALPHA)
             pygame.draw.polygon(s, (170, 40, 5, col_a),
                                 [(0, fh), (20, 0), (40, fh)])
-            # Api dalam (cerah, tipis)
+                                      
             ih = int(fh * 0.6)
             pygame.draw.polygon(s, (255, 120, 10, col_a // 2),
                                 [(10, fh), (20, fh - ih), (30, fh)])
             surface.blit(s, (fx, H - fh - 40))
 
     def _draw_ruin_background(self, surface: pygame.Surface):
-        """Gradien langit hitam-merah mati untuk scene ruin."""
         W, H = self._game.W, self._game.H
         for y in range(H):
             t = y / H
-            # Puncak: hampir hitam. Bawah: merah tua redup.
+                                                           
             r = int(5  + 50  * t)
             g = int(0  + 4   * t)
             b = int(0  + 4   * t)
             pygame.draw.line(surface, (r, g, b), (0, y), (W, y))
 
     def _draw_ruin_debris_visual(self, surface: pygame.Surface):
-        """Puing-puing kerajaan hancur."""
         try:
             for d in self._ruin_debris:
                 tmp = pygame.Surface((d['w'], d['h']), pygame.SRCALPHA)
                 pygame.draw.rect(tmp, (*d['col'], 210),
                                  (0, 0, d['w'], d['h']), border_radius=2)
-                # Retakan di batu
+                                 
                 pygame.draw.line(tmp, (25, 20, 25),
                                  (2, 3), (d['w'] - 3, d['h'] - 4), 1)
                 rot = pygame.transform.rotate(tmp, d['angle'])
@@ -794,7 +855,7 @@ class BadEndScene(Scene):
         except Exception:
             pass
 
-        # Siluet menara hancur
+                              
         W, H = self._game.W, self._game.H
         gy   = self._ground_y
         towers = [
@@ -807,7 +868,7 @@ class BadEndScene(Scene):
         for tx, ty, tw, th in towers:
             pygame.draw.rect(surface, (22, 18, 25),
                              pygame.Rect(tx - tw // 2, ty, tw, th))
-            # Puncak menara hancur — tidak rata
+                                               
             pts = [
                 (tx - tw // 2, ty),
                 (tx - tw // 3 + random.randint(-4, 4), ty - 25),
@@ -817,7 +878,7 @@ class BadEndScene(Scene):
             ]
             pygame.draw.polygon(surface, (18, 14, 20), pts)
 
-        # Tanah retak
+                     
         crack_col = (30, 20, 22)
         for i in range(8):
             x1 = random.randint(0, W)
@@ -827,7 +888,6 @@ class BadEndScene(Scene):
             pygame.draw.line(surface, crack_col, (x1, y1), (x2, y2), 2)
 
     def _update_ruin_slideshow(self, dt: float):
-        """Update slide-timer dan transisi antar BG slide di ruin_narration."""
         if self._ruin_slide_idx >= len(self._ruin_slides):
             return
 
@@ -859,38 +919,86 @@ class BadEndScene(Scene):
                 self._ruin_slide_fade  = 0
 
     def _draw_ruin_slideshow(self, surface: pygame.Surface):
-        """Tampilkan BG slide aktif + overlay transisi hitam."""
         W, H = self._game.W, self._game.H
 
-        # Gambar slide BG aktif
+                               
         idx = min(self._ruin_slide_idx, len(self._ruin_slides) - 1)
         attr = self._ruin_slides[idx]
         bg = getattr(self._game.assets, attr, None)
         if bg:
             surface.blit(bg, (0, 0))
         else:
-            # Fallback gradien merah gelap
+                                          
             for y in range(H):
                 t = y / H
                 r = int(5 + 50 * t)
                 pygame.draw.line(surface, (r, 0, 0), (0, y), (W, y))
 
-        # Overlay gelap tetap — beri suasana lebih suram
+                                                        
         dark = pygame.Surface((W, H), pygame.SRCALPHA)
         dark.fill((0, 0, 0, 80))
         surface.blit(dark, (0, 0))
 
-        # Overlay transisi antar slide
+                                      
         if self._ruin_slide_fade > 0:
             ov = pygame.Surface((W, H), pygame.SRCALPHA)
             ov.fill((0, 0, 0, self._ruin_slide_fade))
             surface.blit(ov, (0, 0))
 
+    def _draw_darkness_particles(self, surface: pygame.Surface):
+        W, H = self._game.W, self._game.H
+
+                                                                
+        for td in self._shadow_tendrils:
+            pts = []
+            steps = 12
+            for i in range(steps + 1):
+                frac = (i / steps) * td['progress']
+                if frac > 1.0:
+                    break
+                ty = td['by'] - frac * td['height']
+                tx = td['bx'] + math.sin(td['wobble'] + frac * td['wfreq'] * math.pi) * td['wamp']
+                pts.append((int(tx), int(ty)))
+            if len(pts) >= 2:
+                life_r = max(0.0, td['life'] / 3.5)
+                alpha  = int(td['col'][3] * min(1.0, life_r * 2))
+                try:
+                    ts = pygame.Surface((W, H), pygame.SRCALPHA)
+                    pygame.draw.lines(ts, (*td['col'][:3], alpha), False, pts, td['width'])
+                    surface.blit(ts, (0, 0))
+                except Exception:
+                    pass
+
+                                                  
+        for orb in self._dark_orbs:
+            r = orb['r']
+            col = orb['col']
+            try:
+                os_ = pygame.Surface((r * 4, r * 4), pygame.SRCALPHA)
+                            
+                pygame.draw.circle(os_, (*col, 200), (r * 2, r * 2), r)
+                                 
+                pygame.draw.circle(os_, (*col, 60), (r * 2, r * 2), r + r // 2)
+                surface.blit(os_, (int(orb['x']) - r * 2, int(orb['y']) - r * 2))
+            except Exception:
+                pass
+
+                                           
+        for sp in self._void_sparks:
+            life_r = sp['life'] / sp['max']
+            alpha  = int(200 * min(life_r * 3, 1.0))
+            r = sp['r']
+            try:
+                ss = pygame.Surface((r * 2 + 2, r * 2 + 2), pygame.SRCALPHA)
+                pygame.draw.circle(ss, (*sp['col'], alpha), (r + 1, r + 1), r)
+                surface.blit(ss, (int(sp['x']) - r, int(sp['y']) - r))
+            except Exception:
+                pass
+
     def _draw_vignette(self, surface: pygame.Surface):
-        """Vignette hitam pekat di tepi layar — menekan dan mencekam."""
         W, H = self._game.W, self._game.H
         vgn  = pygame.Surface((W, H), pygame.SRCALPHA)
-        # Empat sisi
+                    
         strength = 180
         for i in range(80):
             t = i / 80
@@ -900,13 +1008,12 @@ class BadEndScene(Scene):
         surface.blit(vgn, (0, 0))
 
     def _draw_narration_text(self, surface: pygame.Surface):
-        """Baris narasi dengan fade + efek visual tambahan."""
         W, H = self._game.W, self._game.H
         if self._narr_index >= len(RUIN_NARRATIONS):
             return
         txt = RUIN_NARRATIONS[self._narr_index]
         if txt == "":
-            return   # baris kosong = jeda visual, tidak tampilkan apa-apa
+            return                                                        
 
         try:
             is_header = (txt.endswith(".") and len(txt) < 20 and
@@ -914,11 +1021,11 @@ class BadEndScene(Scene):
             is_closing = self._narr_index >= len(RUIN_NARRATIONS) - 5
 
             if is_closing:
-                # Baris penutup: kecil, redup, seperti bisikan
+                                                              
                 col  = (160, 60, 60)
                 font = self._font_narr_s
             elif is_header:
-                # Baris singkat seperti judul blok: lebih besar, putih pucat
+                                                                            
                 col  = (210, 195, 185)
                 font = self._font_narr
             else:
@@ -928,11 +1035,11 @@ class BadEndScene(Scene):
             surf = font.render(txt, True, col)
             surf.set_alpha(self._narr_alpha)
 
-            # Posisi: sedikit di bawah tengah
+                                             
             tx = W // 2 - surf.get_width() // 2
             ty = H // 2 - surf.get_height() // 2
 
-            # Garis pembatas tipis
+                                  
             if self._narr_alpha > 30:
                 line_w = min(surf.get_width() + 60, W - 80)
                 line_a = self._narr_alpha // 3
@@ -946,7 +1053,7 @@ class BadEndScene(Scene):
         except Exception:
             pass
 
-        # Hint skip — hanya muncul saat teks sudah penuh terlihat
+                                                                 
         if self._narr_alpha > 220:
             try:
                 h = self._font_hint.render("[ SPACE untuk lanjut ]",

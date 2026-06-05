@@ -1,16 +1,3 @@
-"""
-scenes/town_scene.py
-====================
-Kota Astravia — Eksplorasi, NPC, Encounter Slime (Turn-Based).
-[INHERITANCE] Scene(ABC). [POLYMORPHISM] interact() tiap NPC berbeda.
-
-PERUBAHAN:
-- Battle langsung (SPACE serang) DIHAPUS.
-- Diganti dengan encounter turn-based:
-  • Musuh muncul SETELAH semua NPC sudah diajak bicara.
-  • Musuh berjalan masuk dari sisi KANAN layar.
-  • Player berinteraksi (tekan E) dengan kelompok slime → masuk battle scene.
-"""
 
 import pygame
 import math
@@ -22,9 +9,8 @@ from entities.characters import Player, PartyNPC, KingdomNPC, MonsterNPC
 
 
 class Chapter2Scene(Scene):
-    """Chapter 2 — Kota Astravia: Eksplorasi dan Encounter Slime."""
 
-    # Dialog Elena setelah semua NPC selesai diajak bicara
+                                                          
     ALL_NPC_DONE_DLGS = [
         ("Arga",  "Kotanya... ramai juga ya."),
         ("Elena", "Iya, Astravia merupakan salah satu kota terbesar yang tersisa. Banyak pengungsi dari timur datang ke sini."),
@@ -42,7 +28,7 @@ class Chapter2Scene(Scene):
         ("Elena", "...Hati-hati."),
     ]
 
-    # Dialog setelah battle selesai (menang) — dipanggil oleh BattleScene saat kembali
+                                                                                      
     POST_BATTLE_DLGS = [
         ("Elena", "Cepat sekali. Bahkan aku sampai kesusahan untuk membantumu."),
         ("Arga",  "Aku sendiri kaget... seolah tubuh ini bergerak sendiri."),
@@ -59,7 +45,7 @@ class Chapter2Scene(Scene):
     def __init__(self, game):
         super().__init__(game)
         self._t = 0.0
-        # phase: explore → npc_done_dlg → enemy_walkin → encounter → post_battle → goto_ch3
+                                                                                           
         self._phase = "explore"
         self._dialogue = DialogueBox(game.W, game.H)
         self._transition = TransitionScreen(game.W, game.H)
@@ -70,35 +56,35 @@ class Chapter2Scene(Scene):
         ground_y = int(game.H * 0.82)
         self._ground_y = ground_y
         self._player = Player(200, ground_y - 55)
-        self._player.before_isekai = False   # sudah dapat Holy Sword
+        self._player.before_isekai = False                           
         self._elena  = PartyNPC("Elena", 270, ground_y - 55)
         self._elena.emotion = "happy"
         self._player_speed = 150.0
 
-        # NPC kota — semua harus diajak bicara sebelum musuh muncul
+                                                                   
         self._npcs: list[KingdomNPC] = []
-        self._npc_talked: set[int] = set()   # indeks NPC yang sudah diajak bicara
-        # (name, target_x_world, dlg, emotion, color)
+        self._npc_talked: set[int] = set()                                        
+                                                     
         for name, nx, dlg, em, col in [
             ("Anak Kecil",   400,  "Kakak yang punya pedang emas itu! Ayah bilang kakak datang dari dunia lain, beneran Ya?!",                    "happy",   (220, 180, 120)),
             ("Pria Tua",     600,  "Sudah lama aku tidak melihat Pedang Suci memancarkan cahaya seperti itu... semoga kita diberi keberkahan akan hal ini.",    "normal",  (160, 140, 100)),
-            ("Warga Kota",   820,  "Suamiku pergi ke timur dua bulan lalu untuk melindungi kampung halamannya. Tapi.. sampai sekarang belum kembali huhu...", "sad",    (180, 140, 140)),
+            ("Warga Kota",   820,  "Istriku pergi ke timur dua bulan lalu untuk melindungi kampung halamannya. Tapi.. sampai sekarang belum kembali huhu...", "sad",    (180, 140, 140)),
             ("Warga Kota 2", 1020, "Aura yang kau bawa itu... mengingatkanku pada pahlawan dalam legenda. Semoga cerita ini berakhir berbeda.", "normal",(140, 160, 180)),
         ]:
-            # Spawn di luar kanan layar, walk-in ke target_x (world space)
+                                                                          
             npc = KingdomNPC(name, nx, ground_y - 55, col)
             npc.set_dialogues([dlg])
             npc.emotion = em
             npc._highlight = True
             self._npcs.append(npc)
 
-        # Encounter: 3 slime yang akan walk-in dari kanan setelah semua NPC selesai
+                                                                                   
         self._slimes: list[MonsterNPC] = []
         self._slimes_walkin_active = False
         self._slimes_walkin_done   = False
-        self._slimes_interactable  = False   # True setelah walk-in selesai
-        self._town_empty           = False   # True setelah warga menghilang
-        self._pending_spawn        = False   # tunggu fade selesai baru spawn slime
+        self._slimes_interactable  = False                                 
+        self._town_empty           = False                                  
+        self._pending_spawn        = False                                         
 
         self._encounter_enemies = [
             {"name": "Slime", "hp": 80, "atk": 10, "def": 3, "exp": 20, "gold": 5},
@@ -108,22 +94,22 @@ class Chapter2Scene(Scene):
 
         self._dlg_step = 0
         self._npc_done_dlg_step = 0
-        self._active_npc_idx = -1   # NPC yang sedang diajak bicara
+        self._active_npc_idx = -1                                  
 
-        # ── Animasi hardcode idle NPC kota (seperti King, Mage, Knight di ch1) ──
-        # Urutan _npcs: 0=Anak Kecil, 1=Pria Tua, 2=Warga Kota, 3=Warga Kota 2
-        # Sprite mapping: citizen_child, oldman, citizen_man, soldier
+                                                                                  
+                                                                              
+                                                                     
         self._npc_anim_timer  = 0.0
-        self._npc_anim_speed  = 0.18   # detik per frame
-        self._npc_child_frame   = 0   # Anak Kecil  → citizen_child_idle_frames
-        self._npc_oldman_frame  = 0   # Pria Tua    → oldman_idle_frames
-        self._npc_woman_frame   = 0   # Warga Kota  → citizen_man_idle_frames
-        self._npc_soldier_frame = 0   # Warga Kota 2 → soldier_idle_frames
+        self._npc_anim_speed  = 0.18                    
+        self._npc_child_frame   = 0                                            
+        self._npc_oldman_frame  = 0                                     
+        self._npc_woman_frame   = 0                                          
+        self._npc_soldier_frame = 0                                       
 
         self._cam_x = 0.0
         self._world_w = 1200
 
-        # Apakah scene ini kembali dari battle yang menang
+                                                          
         self._returned_from_battle = game.flags.get("battle_won_chapter2", False)
 
         try:
@@ -133,15 +119,16 @@ class Chapter2Scene(Scene):
 
     def on_enter(self) -> None:
         self._transition.fade_in(speed=180)
+        self._game.assets.play_bgm("town_theme", loop=-1, volume=0.7)
 
-        # Jika kembali dari battle, langsung ke post_battle
+                                                           
         if self._returned_from_battle:
             self._phase = "post_battle"
             self._dlg_step = 0
-            self._town_empty = True          # warga sudah hilang sebelum battle
+            self._town_empty = True                                             
             self._dialogue.show(self.POST_BATTLE_DLGS[0][1], self.POST_BATTLE_DLGS[0][0])
             self._game.flags["battle_won_chapter2"] = False
-            # Elena sudah ikut, langsung aktifkan follow
+                                                        
             self._elena.follow(self._player)
             self._elena.follow_distance = -80
             self._elena.enable_follow()
@@ -151,11 +138,11 @@ class Chapter2Scene(Scene):
             "Chapter 2 — Kota Astravia",
             "← → Berjalan  |  E Bicara dengan NPC  |  E Dekati musuh → Battle"
         ], 4.0)
-        # Walk-in Arga dan Elena dari kiri
-        # Posisi awal diatur oleh start_walkin
+                                          
+                                              
         self._elena.follow(self._player)
         self._elena.follow_distance = -80
-        self._elena.disable_follow()   # follow OFF dulu saat walkin berlangsung
+        self._elena.disable_follow()                                            
         self.start_walkin([
             (self._player, 200),
             (self._elena, 270),
@@ -171,7 +158,7 @@ class Chapter2Scene(Scene):
                 if key in (pygame.K_SPACE, pygame.K_RETURN, pygame.K_z):
                     self._advance_npc_done_dlg()
             elif self._phase == "encounter":
-                # Tekan E saat dekat kelompok slime → masuk battle
+                                                                  
                 if key == pygame.K_e:
                     self._try_start_battle()
             elif self._phase in ("dialogue", "post_battle"):
@@ -179,7 +166,6 @@ class Chapter2Scene(Scene):
                     self._advance_dialogue()
 
     def _try_interact(self):
-        """Coba berinteraksi dengan NPC terdekat saat fase explore."""
         if self._walkin_active:
             return
         px = self._player.x
@@ -190,24 +176,29 @@ class Chapter2Scene(Scene):
                 self._phase = "dialogue"
                 self._active_npc_idx = i
                 self._game.assets.play("select")
+                try: self._game.assets.play_sfx_file("interact_npc_sfx")
+                except Exception: pass
                 return
 
     def _advance_dialogue(self):
-        """Advance dialog NPC biasa atau dialog post-battle."""
         if not self._dialogue.is_finished:
             self._dialogue.skip()
+            try: self._game.assets.play_sfx_file("space_enter_sfx")
+            except Exception: pass
             return
         self._game.assets.play("cursor")
+        try: self._game.assets.play_sfx_file("space_enter_sfx")
+        except Exception: pass
 
         if self._phase == "dialogue":
-            # Tandai NPC sudah diajak bicara
+                                            
             if self._active_npc_idx >= 0:
                 self._npc_talked.add(self._active_npc_idx)
                 self._npcs[self._active_npc_idx]._highlight = False
                 self._active_npc_idx = -1
             self._dialogue.hide()
             self._phase = "explore"
-            # Cek apakah semua NPC sudah selesai
+                                                
             self._check_all_npc_done()
 
         elif self._phase == "post_battle":
@@ -220,7 +211,6 @@ class Chapter2Scene(Scene):
                 self._transition.fade_out(speed=200)
 
     def _check_all_npc_done(self):
-        """Jika semua NPC sudah diajak bicara, mulai dialog transisi dan spawn musuh."""
         if len(self._npc_talked) >= len(self._npcs) and self._phase == "explore":
             self._phase = "npc_done_dlg"
             self._npc_done_dlg_step = 0
@@ -229,28 +219,30 @@ class Chapter2Scene(Scene):
             self._elena.emotion = "surprised"
 
     def _advance_npc_done_dlg(self):
-        """Advance dialog peralihan sebelum musuh muncul."""
         if not self._dialogue.is_finished:
             self._dialogue.skip()
+            try: self._game.assets.play_sfx_file("space_enter_sfx")
+            except Exception: pass
             return
         self._game.assets.play("cursor")
+        try: self._game.assets.play_sfx_file("space_enter_sfx")
+        except Exception: pass
         self._npc_done_dlg_step += 1
         if self._npc_done_dlg_step < len(self.ALL_NPC_DONE_DLGS):
             spk, txt = self.ALL_NPC_DONE_DLGS[self._npc_done_dlg_step]
             self._dialogue.show(txt, spk)
         else:
-            # Dialog selesai → fade out, lalu warga hilang, lalu spawn slime
+                                                                            
             self._dialogue.hide()
             self._pending_spawn = True
             self._phase = "pre_spawn_fade"
             self._transition.fade_out(speed=220)
 
     def _spawn_slimes_walkin(self):
-        """Spawn 3 slime di luar layar kanan, berjalan masuk ke kiri menghadap Arga."""
         ground_y = self._ground_y
         screen_w = self._game.W
-        # Target posisi slime: bergerombol di sisi kanan layar (dekat player)
-        # Player umumnya di sekitar x=200-400, slime datang dari kanan
+                                                                             
+                                                                      
         targets = [
             self._cam_x + screen_w - 140,
             self._cam_x + screen_w - 220,
@@ -269,32 +261,24 @@ class Chapter2Scene(Scene):
         self._game.assets.play("damage")
 
     def _try_start_battle(self):
-        """
-        Cek apakah player cukup dekat dengan kelompok slime.
-        Jika ya → masuk battle scene turn-based.
-        Karena slime adalah satu kelompok, interaksi satu → battle semua.
-        """
         if not self._slimes_interactable or not self._slimes:
             return
-        # Cek slime terdekat (salah satu saja cukup karena mereka satu kelompok)
+                                                                                
         px = self._player.x
         for slime in self._slimes:
             slime_screen_x = slime.x - self._cam_x
             if abs(slime_screen_x - px) < 100:
+                try: self._game.assets.play_sfx_file("interact_boss_sfx")
+                except Exception: pass
                 self._enter_battle()
                 return
-        # Hint jika belum cukup dekat
+                                     
         try:
             self._narrator.show(["Dekati Slime terlebih dahulu!"], 1.0)
         except Exception:
             pass
 
     def _enter_battle(self):
-        """
-        [HINT] Memanggil turn-based battle scene.
-        Saat ini menampilkan pesan sementara karena BattleScene belum diimplementasi.
-        Hapus blok try/except dan aktifkan start_battle_scene() setelah BattleScene jadi.
-        """
         try:
             from battle.battle_scene import start_battle_scene, ENCOUNTER_TOWN_SLIMES
             start_battle_scene(
@@ -304,7 +288,7 @@ class Chapter2Scene(Scene):
                 context={"chapter": 2, "encounter_id": "town_slimes"},
             )
         except NotImplementedError:
-            # [SEMENTARA] BattleScene belum ada — simulasikan menang langsung
+                                                                             
             self._narrator.show(
                 ["[BATTLE SCENE BELUM ADA]", "Anggap menang — lanjut cerita..."], 3.0
             )
@@ -318,7 +302,7 @@ class Chapter2Scene(Scene):
         self._t += dt
         self.update_walkin(dt)
 
-        # Setelah walkin selesai → aktifkan follow elena
+                                                        
         if not self._walkin_active and not self._elena._follow_enabled:
             self._elena.enable_follow()
 
@@ -330,7 +314,7 @@ class Chapter2Scene(Scene):
         for npc in self._npcs:
             npc.update(dt)
 
-        # ── Animasi idle hardcode NPC kota (loop seperti King/Mage/Knight di ch1) ──
+                                                                                     
         self._npc_anim_timer += dt
         if self._npc_anim_timer >= self._npc_anim_speed:
             self._npc_anim_timer = 0.0
@@ -348,7 +332,7 @@ class Chapter2Scene(Scene):
             ft.update(dt)
         self._floats = [f for f in self._floats if f.alive]
 
-        # Gerakan player (hanya saat explore atau encounter — tidak bisa gerak saat dialog)
+                                                                                           
         if self._phase in ("explore", "encounter"):
             if not self._walkin_active:
                 keys = pygame.key.get_pressed()
@@ -360,24 +344,24 @@ class Chapter2Scene(Scene):
                 if moving_right:
                     dx = self._player_speed * dt
                 self._player.x = max(60, min(self._world_w - 60, self._player.x + dx))
-                # Elena mengikuti lewat sistem follow (tidak di-hardcode di sini)
+                                                                                 
 
-                # Animasi walk / idle + flip arah
+                                                 
                 if moving_left and not moving_right:
-                    self._player.set_walking(True, False)   # jalan kiri
+                    self._player.set_walking(True, False)               
                 elif moving_right and not moving_left:
-                    self._player.set_walking(True, True)    # jalan kanan
+                    self._player.set_walking(True, True)                 
                 else:
-                    self._player.set_walking(False)          # diam
+                    self._player.set_walking(False)                
             else:
-                # Walk-in awal scene (dari kiri ke kanan)
+                                                         
                 self._player.set_walking(True, True)
             target_cam = self._player.x - self._game.W * 0.3
             self._cam_x = max(0, min(self._world_w - self._game.W, target_cam))
         else:
             self._player.set_walking(False)
 
-        # Update walk-in slime dari kanan
+                                         
         if self._slimes_walkin_active:
             all_arrived = True
             for slime in self._slimes:
@@ -385,7 +369,7 @@ class Chapter2Scene(Scene):
                 if slime.x > tx + 2:
                     slime.x = max(tx, slime.x - 200 * dt)
                     if hasattr(slime, 'set_walking'):
-                        slime.set_walking(True, True)   # animasi jalan (arah tidak diflip)
+                        slime.set_walking(True, True)                                      
                     all_arrived = False
                 else:
                     slime.x = tx
@@ -397,13 +381,13 @@ class Chapter2Scene(Scene):
                 self._slimes_interactable  = True
                 self._phase = "encounter"
 
-        # Update slime
+                      
         for slime in self._slimes:
             slime.update(dt)
 
-        # Fade selesai → warga hilang, fade in, spawn slime
+                                                           
         if self._phase == "pre_spawn_fade" and self._transition.done:
-            self._town_empty = True        # sembunyikan NPC warga
+            self._town_empty = True                               
             self._pending_spawn = False
             self._phase = "enemy_walkin"
             self._transition.fade_in(speed=200)
@@ -414,26 +398,26 @@ class Chapter2Scene(Scene):
             self._game.replace_scene(Chapter3Scene(self._game))
 
     def draw(self, surface: pygame.Surface) -> None:
-        # Scroll background
+                           
         bg = self._game.assets.bg_town
         bx = int(-self._cam_x * 0.5) % self._game.W
         surface.blit(bg, (bx, 0))
         if bx > 0:
             surface.blit(bg, (bx - self._game.W, 0))
 
-        # NPC warga (disembunyikan setelah transisi pre-spawn)
+                                                              
         if not self._town_empty:
-            # Mapping indeks NPC → (frames_attr, frame_counter)
+                                                               
             _npc_anim_map = [
-                ("citizen_child_idle_frames", self._npc_child_frame),    # 0: Anak Kecil
-                ("oldman_idle_frames",        self._npc_oldman_frame),   # 1: Pria Tua
-                ("citizen_man_idle_frames",   self._npc_woman_frame),    # 2: Warga Kota
-                ("soldier_idle_frames",       self._npc_soldier_frame),  # 3: Warga Kota 2
+                ("citizen_child_idle_frames", self._npc_child_frame),                   
+                ("oldman_idle_frames",        self._npc_oldman_frame),                
+                ("citizen_man_idle_frames",   self._npc_woman_frame),                   
+                ("soldier_idle_frames",       self._npc_soldier_frame),                   
             ]
             for i, npc in enumerate(self._npcs):
                 screen_x = npc.x - self._cam_x
                 if -60 < screen_x < self._game.W + 60:
-                    # Coba gambar dengan sprite animasi hardcode dulu
+                                                                     
                     drawn_anim = False
                     if i < len(_npc_anim_map):
                         frames_attr, frame_idx = _npc_anim_map[i]
@@ -442,7 +426,7 @@ class Chapter2Scene(Scene):
                             self._draw_npc_frame(surface, frames_attr, frame_idx,
                                                  int(screen_x), int(npc.y))
                             drawn_anim = True
-                    # Fallback ke KingdomNPC.draw() jika sprite tidak tersedia
+                                                                              
                     if not drawn_anim:
                         old = npc.x
                         npc.x = screen_x
@@ -452,14 +436,14 @@ class Chapter2Scene(Scene):
         self.draw_char_scaled(surface, self._player, 1.6)
         self.draw_char_scaled(surface, self._elena,  1.6)
 
-        # Slime enemies (project ke screen space)
+                                                 
         for slime in self._slimes:
             screen_x = slime.x - self._cam_x
             if -60 < screen_x < self._game.W + 60:
                 old = slime.x
                 slime.x = screen_x
                 self.draw_char_scaled(surface, slime, 1.7)
-                # Indikator interaksi jika cukup dekat
+                                                      
                 if self._slimes_interactable:
                     px = self._player.x
                     if abs(screen_x - px) < 100:
@@ -469,7 +453,7 @@ class Chapter2Scene(Scene):
         for ft in self._floats:
             ft.draw(surface)
 
-        # Tanda seru pada NPC yang belum diajak bicara
+                                                      
         if not self._town_empty:
             for i, npc in enumerate(self._npcs):
                 if i not in self._npc_talked and self._phase == "explore":
@@ -477,13 +461,13 @@ class Chapter2Scene(Scene):
                     if 0 < screen_x < self._game.W:
                         self._draw_exclamation(surface, int(screen_x), int(npc.y) - 70)
 
-        # Party HUD kiri atas
+                             
         self._draw_party_hud(surface)
         self._narrator.draw(surface)
         self._dialogue.draw(surface)
         self._transition.draw(surface)
 
-        # Controls hint
+                       
         try:
             if self._phase == "explore":
                 left = len(self._npcs) - len(self._npc_talked)
@@ -501,7 +485,6 @@ class Chapter2Scene(Scene):
 
     def _draw_npc_frame(self, surface, frames_attr, frame_idx, x, y,
                         scale=1.6, facing_right=True):
-        """Gambar NPC dari frame list di assets, normalisasi tinggi ke 96px (sama seperti ch1)."""
         SPRITE_BASE_H = 96
         frames = getattr(self._game.assets, frames_attr, [])
         if not frames:
@@ -520,7 +503,6 @@ class Chapter2Scene(Scene):
         surface.blit(scaled, (x - new_w // 2, y - new_h))
 
     def _draw_interact_hint(self, surface, cx, cy):
-        """Tanda [E] di atas musuh jika bisa diinteraksi."""
         try:
             f = pygame.font.SysFont("Consolas", 13, bold=True)
             t = f.render("[E] Bertarung!", True, DAMAGE_RED)
@@ -529,7 +511,6 @@ class Chapter2Scene(Scene):
             pass
 
     def _draw_exclamation(self, surface, cx, cy):
-        """Tanda ! kuning di atas NPC yang belum diajak bicara."""
         try:
             f = pygame.font.SysFont("Georgia", 20, bold=True)
             t = f.render("!", True, GOLD_LIGHT)

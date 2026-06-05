@@ -2,12 +2,11 @@ import pygame
 from engine.colors import *
 from engine.assets import AssetManager
 
-# Global instance — diakses oleh entities/characters.py untuk load asset
+                                                                        
 GAME_INSTANCE = None
 
 
 class Game:
-    """Kelas utama yang mengorkestrasi seluruh game."""
 
     def __init__(self, screen: pygame.Surface, clock: pygame.time.Clock):
         self.screen = screen
@@ -18,24 +17,24 @@ class Game:
 
         self.assets = AssetManager(self.W, self.H)
 
-        # Set global agar entities bisa load asset tanpa passing reference
+                                                                          
         global GAME_INSTANCE
         GAME_INSTANCE = self
 
         self._scene_stack: list = []
 
-        # State game global
+                           
         self.player_name = "Arga"
         self.inventory: list[str] = []
-        self.flags: dict = {}       # flag cerita
-        self.party: list[str] = []  # nama anggota party
-        self.choice_result: str = ""  # hasil pilihan player di critical moment
+        self.flags: dict = {}                    
+        self.party: list[str] = []                      
+        self.choice_result: str = ""                                           
 
         self._boot()
 
     def _boot(self):
-        from scenes.opening_scene import OpeningScene
-        self.push_scene(OpeningScene(self))
+        from scenes.menu_scene import MenuScene
+        self.push_scene(MenuScene(self))
 
     def push_scene(self, scene) -> None:
         scene.on_enter()

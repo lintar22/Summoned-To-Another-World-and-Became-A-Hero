@@ -1,8 +1,3 @@
-"""
-ui/components.py
-================
-Komponen UI: DialogueBox, HUD, TransitionScreen, StatusWindow, BattleUI.
-"""
 
 import pygame
 import math
@@ -10,10 +5,6 @@ from engine.colors import *
 
 
 class DialogueBox:
-    """
-    Kotak dialog gaya visual novel dengan typewriter effect.
-    Mendukung nama karakter, pilihan, dan portrait indicator.
-    """
 
     def __init__(self, W: int, H: int):
         self.W = W
@@ -107,13 +98,13 @@ class DialogueBox:
         if not self.visible:
             return
 
-        # Kotak utama
+                     
         box_surf = pygame.Surface((self.W - 40, self.box_h), pygame.SRCALPHA)
         pygame.draw.rect(box_surf, (10, 8, 22, 220), (0, 0, self.W-40, self.box_h), border_radius=8)
         pygame.draw.rect(box_surf, UI_BORDER, (0, 0, self.W-40, self.box_h), 2, border_radius=8)
         surface.blit(box_surf, (20, self.box_y))
 
-        # Nama karakter
+                       
         if self._speaker:
             name_surf = self.font_name.render(self._speaker, True, UI_ACCENT)
             name_bg = pygame.Surface((name_surf.get_width()+20, 26), pygame.SRCALPHA)
@@ -122,10 +113,10 @@ class DialogueBox:
             surface.blit(name_bg, (30, self.box_y-22))
             surface.blit(name_surf, (40, self.box_y-19))
 
-        # Teks dengan word wrap
+                               
         if not self._show_choices:
             self._draw_wrapped(surface, self._displayed, 40, self.box_y + 18, self.W - 80, UI_TEXT)
-            # Indikator lanjut
+                              
             if self._finished and not self._choices:
                 blink_alpha = int(128 + 127 * math.sin(self._blink * 4))
                 try:
@@ -134,7 +125,7 @@ class DialogueBox:
                 except Exception:
                     pass
         else:
-            # Tampilkan pilihan
+                               
             y_offset = self.box_y + 15
             for i, choice in enumerate(self._choices):
                 selected = (i == self._choice_index)
@@ -173,10 +164,6 @@ class DialogueBox:
 
 
 class StatusWindow:
-    """Window stat permanen Arga setelah menerima Holy Sword.
-    Data paten — tidak berubah mengikuti kondisi battle.
-    Dibuka/tutup dengan TAB, hanya aktif di Chapter 1 setelah sword_taken.
-    """
 
     ARGA_STATS = {
         "title":  "The Chosen One",
@@ -213,7 +200,7 @@ class StatusWindow:
         self._anim += dt
 
     def draw(self, surface: pygame.Surface, player=None):
-        # parameter 'player' diabaikan — pakai data paten
+                                                         
         if not self.visible:
             return
 
@@ -226,18 +213,18 @@ class StatusWindow:
         pygame.draw.rect(panel, (8, 6, 20, 235), (0, 0, pw, ph), border_radius=10)
         pygame.draw.rect(panel, (124, 92, 191), (0, 0, pw, ph), 2, border_radius=10)
 
-        # Header
+                
         pygame.draw.rect(panel, (50, 20, 100, 100), (0, 0, pw, 40), border_radius=10)
         title = self.font_title.render("【 STATUS 】", True, (200, 160, 255))
         panel.blit(title, (pw // 2 - title.get_width() // 2, 10))
 
-        # Nama & title
+                      
         y = 52
         name_surf = self.font_label.render(f"Arga  —  {s['title']}", True, (232, 216, 255))
         panel.blit(name_surf, (20, y))
         y += 20
 
-        # Badge Holy Sword
+                          
         badge = self.font_hint.render("+ Holy Sword equipped", True, (200, 160, 255))
         badge_w = badge.get_width() + 12
         badge_bg = pygame.Surface((badge_w, 18), pygame.SRCALPHA)
@@ -247,7 +234,7 @@ class StatusWindow:
         panel.blit(badge, (26, y + 1))
         y += 26
 
-        # HP & MP bar
+                     
         self._draw_bar(panel, "HP", s["hp"], s["max_hp"], 20, y, 260, (220, 80, 80))
         y += 36
         self._draw_bar(panel, "MP", s["mp"], s["max_mp"], 20, y, 260, (64, 128, 224))
@@ -256,7 +243,7 @@ class StatusWindow:
         pygame.draw.line(panel, (42, 24, 80), (20, y), (pw - 20, y), 1)
         y += 10
 
-        # Stat rows
+                   
         rows = [
             ("Level",           str(s["level"]),  (255, 208, 96)),
             ("Umur (Age)",      str(s["age"]),    (224, 208, 255)),
@@ -275,13 +262,13 @@ class StatusWindow:
         pygame.draw.line(panel, (42, 24, 80), (20, y), (pw - 20, y), 1)
         y += 10
 
-        # Weapon
+                
         lbl = self.font_label.render("Weapon", True, (136, 120, 170))
         val = self.font_value.render(s["weapon"], True, (255, 208, 96))
         panel.blit(lbl, (20, y))
         panel.blit(val, (pw - 20 - val.get_width(), y))
 
-        # Hint
+              
         pygame.draw.line(panel, (42, 24, 80), (20, ph - 30), (pw - 20, ph - 30), 1)
         hint = self.font_hint.render("[ TAB ]  buka / tutup", True, (74, 56, 112))
         panel.blit(hint, (pw // 2 - hint.get_width() // 2, ph - 22))
@@ -295,7 +282,6 @@ class StatusWindow:
         pygame.draw.rect(surf, col,           (x, y + 18, w, 10), border_radius=4)
 
 class BattleUI:
-    """UI untuk scene pertarungan."""
 
     def __init__(self, W, H):
         self.W = W
@@ -317,14 +303,14 @@ class BattleUI:
         ratio = enemy.hp / max(1, enemy.max_hp)
         bar_w = 300
         bx, by = self.W//2 - bar_w//2, 20
-        # Background
+                    
         panel = pygame.Surface((bar_w+20, 50), pygame.SRCALPHA)
         pygame.draw.rect(panel,(8,6,20,180),(0,0,bar_w+20,50), border_radius=6)
         surface.blit(panel,(bx-10, by-5))
-        # Nama
+              
         name_txt = self.font_info.render(enemy.name, True, UI_ACCENT)
         surface.blit(name_txt,(bx, by))
-        # HP bar
+                
         pygame.draw.rect(surface,(40,0,0),(bx, by+18, bar_w, 14), border_radius=3)
         bar_col = HP_BAR if ratio > 0.4 else HP_BAR_LOW
         pygame.draw.rect(surface, bar_col,(bx, by+18, int(bar_w*ratio), 14), border_radius=3)
@@ -332,19 +318,19 @@ class BattleUI:
         surface.blit(hp_txt,(bx+bar_w+5, by+16))
 
     def draw_player_hud(self, surface, player):
-        # HUD kiri bawah
+                        
         hx, hy = 20, self.H - 80
         panel = pygame.Surface((260,70),pygame.SRCALPHA)
         pygame.draw.rect(panel,(8,6,20,200),(0,0,260,70), border_radius=6)
         pygame.draw.rect(panel, UI_BORDER,(0,0,260,70),2, border_radius=6)
         surface.blit(panel,(hx-4,hy-4))
-        # HP
+            
         hp_ratio = player.hp/max(1,player.max_hp)
         pygame.draw.rect(surface,(40,0,0),(hx,hy,200,12),border_radius=3)
         pygame.draw.rect(surface,HP_BAR,(hx,hy,int(200*hp_ratio),12),border_radius=3)
         hp_lbl = self.font_info.render(f"HP {player.hp}/{player.max_hp}",True,UI_TEXT)
         surface.blit(hp_lbl,(hx+205,hy))
-        # MP
+            
         mp_ratio = player.mp/max(1,player.max_mp)
         pygame.draw.rect(surface,(0,0,40),(hx,hy+18,200,12),border_radius=3)
         pygame.draw.rect(surface,MP_BAR,(hx,hy+18,int(200*mp_ratio),12),border_radius=3)
@@ -359,7 +345,6 @@ class BattleUI:
 
 
 class TransitionScreen:
-    """Efek transisi fade in/out dan flash."""
 
     def __init__(self, W, H):
         self.W = W
@@ -411,7 +396,6 @@ class TransitionScreen:
 
 
 class FloatingText:
-    """Teks mengambang untuk damage/heal indicator."""
 
     def __init__(self, text, x, y, color=DAMAGE_RED, speed=60, lifetime=1.5):
         self._text = text
@@ -445,7 +429,6 @@ class FloatingText:
 
 
 class NarratorBox:
-    """Kotak narasi di tengah layar."""
 
     def __init__(self, W, H):
         self.W = W
@@ -490,7 +473,6 @@ class NarratorBox:
             surface.blit(txt,(self.W//2-txt.get_width()//2, self.H//2-total_h//2+10+i*30))
 
 class PartyHUD:
-    """HUD party pojok kiri atas — nama putih + HP bar hijau."""
 
     def __init__(self):
         try:
@@ -499,9 +481,6 @@ class PartyHUD:
             self._font = pygame.font.Font(None, 15)
 
     def draw(self, surface, members):
-        """
-        members = list of tuple: [("Arga", hp, max_hp), ("Elena", hp, max_hp), ...]
-        """
         for i, (name, hp, max_hp) in enumerate(members):
             px, py = 10, 10 + i * 44
             panel = pygame.Surface((165, 38), pygame.SRCALPHA)
