@@ -1,3 +1,4 @@
+<img width="1280" height="714" alt="Screenshot 2026-06-05 195029" src="https://github.com/user-attachments/assets/673bae3b-7c7c-4c0d-b083-4aecd701e89f" />
 <div align="center">
 
 # ⚔️ Summoned To Another World and Became A Hero ⚔️
@@ -30,6 +31,8 @@ Pemain mengikuti perjalanan Arga bersama party-nya Elena, Lyra, Darius, dan Reno
 | 🐍 **Engine** | Python + Pygame |
 
 ---
+<img width="1280" height="714" alt="Screenshot 2026-06-05 195029" src="https://github.com/user-attachments/assets/673bae3b-7c7c-4c0d-b083-4aecd701e89f" />
+<img width="1281" height="716" alt="Screenshot 2026-06-05 201600" src="https://github.com/user-attachments/assets/29541e3e-a955-4a23-8a8e-0d3600edcb43" />
 
 ## ✨ Fitur Utama
 
