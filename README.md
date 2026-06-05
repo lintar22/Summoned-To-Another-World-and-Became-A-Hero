@@ -1,4 +1,3 @@
-<img width="1280" height="714" alt="Screenshot 2026-06-05 195029" src="https://github.com/user-attachments/assets/673bae3b-7c7c-4c0d-b083-4aecd701e89f" />
 <div align="center">
 
 # ⚔️ Summoned To Another World and Became A Hero ⚔️
